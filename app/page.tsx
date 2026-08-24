@@ -585,7 +585,7 @@ export default function Home() {
             <div className="benefit-card">
               <div className="benefit-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6.5" strokeWidth="1.6" /><circle cx="15" cy="12" r="6.5" strokeWidth="1.6" /></svg></div>
               <h3>Faster trust</h3>
-              <p>New teammates (and new managers) actually get you in minutes, not months.</p>
+              <p>New teammates (and empathetic managers) actually get you in minutes, not months.</p>
             </div>
             <div className="benefit-card">
               <div className="benefit-icon"><svg viewBox="0 0 24 24"><path d="M5.5 15.5a9 9 0 0 1 13 0" strokeWidth="1.6" strokeLinecap="round" /><path d="M8.3 18a5 5 0 0 1 7.4 0" strokeWidth="1.6" strokeLinecap="round" /><circle cx="12" cy="20" r="1.1" stroke="none" fill="currentColor" /></svg></div>
@@ -615,7 +615,7 @@ export default function Home() {
             </div>
             <div className="sample-card">
               <h3>Detailed version</h3>
-              <p>The whole story — for the new manager, the closest collaborators, or anyone who wants to really get you.</p>
+              <p>The whole story — for the empathetic leader, the closest collaborators, or anyone who wants to really get you.</p>
               <button type="button" className="btn btn-secondary" onClick={() => setPreviewOpen("detailed")}>Preview the detailed version</button>
             </div>
           </div>
