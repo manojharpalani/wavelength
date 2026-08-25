@@ -217,31 +217,31 @@ function printDateString() {
 }
 
 const SAMPLE_VALUES: Values = {
-  name: "Amara Chen",
-  role: "Senior Backend Engineer, Payments Platform",
-  experience: "9 years building distributed systems, 2 years mentoring junior engineers",
-  knownFor: "Turning vague requirements into a clear technical plan, and catching edge cases before they become incidents.",
-  careAbout: "Reliability, clean interfaces between systems, and making sure on-call isn't miserable.",
+  name: "Manoj Harpalani",
+  role: "Engineering Leader",
+  experience: "17 years of experience building large-scale software systems, and 8+ years leading high-performing teams across full-stack consumer products and platforms, spanning big tech, growth-stage, and startups.",
+  knownFor: "Building high-performing teams, fostering innovation, and delivering scalable, reliable systems — with a reputation for being meticulous, methodical, and someone people can count on.",
+  careAbout: "Solving complex problems, mentoring engineers, and driving business impact through technology.\nDiving into software design and architecture, and anything that challenges me intellectually.",
   quickChannel: "Slack",
-  complexChannel: "A 30-minute call, not a Slack thread",
-  responseTime: "Within a few hours during work hours",
+  complexChannel: "Scheduled 1:1s",
+  responseTime: "Usually within a few hours; may take longer if I'm deep in focused work.",
   directness: "Say it straight",
-  processingStyle: "I think out loud in conversation, but I write better answers when I've had a night to sleep on something complex.",
-  decisionStyle: "I look for data first, but I won't let analysis paralysis block a call that needs to be made this week.",
-  bestFocusConditions: "Early mornings, before the first meeting, headphones on.",
-  focusBreakers: "A calendar with no gaps between meetings.",
-  headsUp: "Send the doc before the meeting — I read faster than I listen.",
-  feedbackReceive: "Directly, and as close to the moment as possible.",
-  feedbackGive: "Same — I'd rather say it now than let it become a pattern.",
-  recognition: "A specific line about what worked means more to me than a general 'great job.'",
-  whatHelps: "Clear ownership boundaries, and space to go deep on one hard problem instead of ten shallow ones.",
-  valueTeam: "A team that argues about ideas, not people.",
-  valuePeople: "People who follow through without needing to be chased.",
-  expectations: "Flag risk early, even if you're not sure yet it's a real problem.",
-  strengths: "Meticulous, calm under pressure, direct, a strong mentor, good at simplifying complexity",
-  growingIn: "Delegating the fun problems instead of keeping them for myself.",
-  frictionApproach: "Tell me straight, sooner rather than later — I'd rather fix it than keep guessing.",
-  funFacts: "Rebuilds vintage synthesizers on weekends, and once debugged a production incident from a campsite with one bar of signal.",
+  processingStyle: "I appreciate context before diving into problem-solving — set the stage before sharing details. I do my best thinking with a little processing time, especially in fast-moving verbal discussions, so a written follow-up often gets a sharper answer from me than an on-the-spot one. I sometimes give the full context before arriving at the headline — if you need the bottom line fast, just ask and I'll lead with it.",
+  decisionStyle: "I balance data, intuition, and team input.\nI lean toward collaboration when a decision affects multiple stakeholders, but I can be decisive quickly when the moment calls for it.\nI always prioritize long-term impact and alignment with team and company goals over short-term convenience.",
+  bestFocusConditions: "Mornings — I dedicate them to focused work and keep afternoons for meetings (typical hours: 9 AM–5 PM).",
+  focusBreakers: "A fragmented calendar, or being pulled into something with no advance notice.",
+  headsUp: "I'm protective of my calendar — if you need time with me, send a clear agenda so I can prepare.\nI can lose track of time when I'm deeply absorbed in a problem, so a direct nudge if we need to move on is always welcome.",
+  feedbackReceive: "Share it early and directly — I'd rather hear it plainly and sooner than have it wait. I treat feedback as how we grow, not as something to soften too much.",
+  feedbackGive: "The same standard — direct, timely, and constructive.",
+  recognition: "Specific, concrete feedback lands better than general praise. I can be quick to underestimate my own work even when the results are strong, so naming exactly what worked helps it actually register.",
+  whatHelps: "Advance context — an agenda or a heads-up before a discussion, rather than being dropped into it cold.\nDirectness, said plainly rather than hinted at.\nA little space to process before responding on complex topics.\nSpecific, concrete feedback rather than general praise.",
+  valueTeam: "Collaboration and mutual respect.\nA culture of learning, experimentation, and continuous improvement.\nOwnership and accountability — empowerment drives results.",
+  valuePeople: "A growth mindset — willingness to learn, adapt, and take on challenges.\nProactive communication and transparency.\nEmpathy, and the ability to see beyond individual contributions to the bigger picture.\nTaking people at face value and assuming good intent.",
+  expectations: "Honesty — share problems early, I'd rather hear bad news sooner.\nPreparedness — come to 1:1s and discussions with clear goals or questions.\nOpenness to giving and receiving constructive feedback.\nInitiative — if you see something broken, propose a solution or at least surface it.",
+  strengths: "Meticulous, methodical, strong work ethic, dedicated and focused, a go-getter, close attention to detail, humble, down-to-earth, honest, loyal, kind, understanding, forgiving",
+  growingIn: "Improving my storytelling skills for clearer, more engaging communication.\nPracticing mindful, service-first leadership that balances team needs and business priorities.\nDeepening my technical knowledge to stay current with evolving trends.",
+  frictionApproach: "Tell me directly and early — I'd rather address it than have it linger.\nIf I seem heads-down or overly serious, it's almost always focus, not distance — a quick, direct check-in is always welcome.",
+  funFacts: "Father of two boys — a third grader and a kindergartner — and family time usually wins over everything else on weekends.\nAlso convinced a good cup of chai can fix most Monday mornings.",
 };
 
 // ---------- small components ----------
@@ -292,7 +292,7 @@ function AudioToggle() {
       playerRef.current = new window.YT.Player(containerRef.current, {
         height: "2",
         width: "2",
-        videoId: "7jfMnh9c_d4",
+        videoId: "fIgfO9gD5GY",
         playerVars: { autoplay: 1, controls: 0, disablekb: 1, modestbranding: 1, rel: 0, playsinline: 1 },
         events: {
           onReady: () => playerRef.current?.playVideo(),
@@ -381,11 +381,11 @@ function ManualBody({ values, mode }: { values: Values; mode: "detailed" | "onep
   }
 
   return (
-    <>
+    <div className="manual-body">
       {mode === "onepager" ? (
         <>
-          <ReviewSection heading="Quick facts" rows={quickFacts} />
-          <ReviewSection heading="The essentials" rows={essentials} />
+          <ReviewSection heading="Quick Facts" rows={quickFacts} />
+          <ReviewSection heading="The Essentials" rows={essentials} />
         </>
       ) : (
         sections.map((s) => <ReviewSection key={s.heading} heading={s.heading} rows={s.items} />)
@@ -400,7 +400,7 @@ function ManualBody({ values, mode }: { values: Values; mode: "detailed" | "onep
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -409,12 +409,22 @@ function ReviewSection({ heading, rows }: { heading: string; rows: { label: stri
   return (
     <div className="review-section">
       <h3 className="review-heading">{heading}</h3>
-      {rows.map((item) => (
-        <div className="review-row" key={item.label}>
-          <div className="review-label">{item.label}</div>
-          <div className="review-value">{item.value}</div>
-        </div>
-      ))}
+      {rows.map((item) => {
+        const points = (item.value || "")
+          .split("\n")
+          .map((p) => p.trim())
+          .filter(Boolean);
+        return (
+          <div className="review-row" key={item.label}>
+            <div className="review-label">{item.label}</div>
+            <ul className="review-value review-list">
+              {points.map((point, i) => (
+                <li key={i}>{point}</li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -615,7 +625,7 @@ export default function Home() {
             </div>
             <div className="sample-card">
               <h3>Detailed version</h3>
-              <p>The whole story — for the empathetic leader, the closest collaborators, or anyone who wants to really get you.</p>
+              <p>The whole story — for empathetic colleagues, the closest collaborators, or anyone who wants to really get you.</p>
               <button type="button" className="btn btn-secondary" onClick={() => setPreviewOpen("detailed")}>Preview the detailed version</button>
             </div>
           </div>
