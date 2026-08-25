@@ -4,6 +4,8 @@ A five-minute wizard for building a shareable "how I work" manual — now an
 AI-native Next.js app on Vercel, with an AI assist that helps polish rough
 notes into clear, first-person answers.
 
+**Live:** https://wavelength-iota-two.vercel.app/
+
 ## Stack
 
 - **Next.js 15** (App Router) + React 19, TypeScript
@@ -54,10 +56,10 @@ it never lands in shell history.)
 
 ## Editing content or design
 
-- Wizard steps, review copy, and the sample "Amara Chen" data all live in
-  `app/page.tsx`.
+- Wizard steps, review copy, and the sample "Manoj Harpalani" data all live
+  in `app/page.tsx`.
 - Styling lives in `app/globals.css`, including the print/PDF letterhead
   used when someone clicks "Print / Save as PDF" on their finished manual.
-- To swap the background track, replace the video ID (`7jfMnh9c_d4`) in the
+- To swap the background track, replace the video ID (`fIgfO9gD5GY`) in the
   `AudioToggle` component in `app/page.tsx` — make sure you have the right
   to use whatever you swap in for background music on a public page.
