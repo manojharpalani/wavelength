@@ -71,6 +71,15 @@ one client component:
   magic-link code for a session. See `docs/DECISIONS.md` (2026-09-04) for
   the reasoning and `supabase/schema.sql` for the DB schema + RLS
   policies — run that file in the Supabase SQL Editor once per project.
+- **`app/join/[code]/page.tsx`, `supabase/schema_phase2.sql`** — teams
+  (Phase 2), gated by the same `isSupabaseConfigured()` check. Team
+  create/join/roster all go through `security definer` RPCs, not direct
+  table access — `teams`/`team_members` have RLS enabled with no row
+  policies at all; see `docs/DECISIONS.md` (2026-09-04, "Teams (Phase 2)")
+  for why. `/join/[code]` is a thin server-component redirect to
+  `/?join=CODE` — the actual join UI lives in `page.tsx` alongside
+  everything else, there's no separate router. Run
+  `supabase/schema_phase2.sql` once, after `schema.sql`.
 
 ### Vercel project quirk
 

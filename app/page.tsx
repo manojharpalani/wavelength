@@ -439,8 +439,11 @@ function ReviewSection({ heading, rows }: { heading: string; rows: { label: stri
 
 // ---------- main app ----------
 
+type TeamSummary = { id: string; name: string; invite_code: string; joined_at: string; is_owner: boolean };
+type RosterRow = { user_id: string; email: string; joined_at: string; has_manual: boolean };
+
 export default function Home() {
-  const [view, setView] = useState<"home" | "wizard">("home");
+  const [view, setView] = useState<"home" | "wizard" | "teams" | "team">("home");
   const [step, setStep] = useState(0);
   const [values, setValues] = useState<Values>({});
   const [exportView, setExportView] = useState<"detailed" | "onepager">("detailed");
@@ -455,8 +458,58 @@ export default function Home() {
   const [authState, setAuthState] = useState<{ sending: boolean; sent: boolean; error?: string }>({ sending: false, sent: false });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [myTeams, setMyTeams] = useState<TeamSummary[]>([]);
+  const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [activeTeam, setActiveTeam] = useState<TeamSummary | null>(null);
+  const [roster, setRoster] = useState<RosterRow[]>([]);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [createTeamState, setCreateTeamState] = useState<{ loading: boolean; error?: string }>({ loading: false });
+  const [joinCodeInput, setJoinCodeInput] = useState("");
+  const [joinState, setJoinState] = useState<{ loading: boolean; error?: string }>({ loading: false });
+  const [pendingInvite, setPendingInvite] = useState<{ code: string; teamName: string | null; checked: boolean } | null>(null);
+  const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
+
   const hasStarted = step > 0 || Object.values(values).some(isFilled);
   const ctaLabel = hasStarted ? "Pick up where you left off" : "Find your wavelength";
+
+  // Pick up a ?join=CODE invite link on first load (including the one
+  // /join/[code] forwards to) and surface it on the Teams hub.
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("join");
+    if (code) {
+      setPendingInvite({ code, teamName: null, checked: false });
+      setView("teams");
+    }
+  }, []);
+
+  // Preview the invited team's name — works even signed out (the RPC is
+  // granted to anon too) so a link can say "join <team>" before sign-in.
+  useEffect(() => {
+    if (!pendingInvite || pendingInvite.checked) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setPendingInvite((p) => (p ? { ...p, checked: true } : p));
+      return;
+    }
+    supabase
+      .rpc("get_team_by_invite_code", { p_code: pendingInvite.code })
+      .then(({ data }) => {
+        const row = Array.isArray(data) && data.length > 0 ? (data[0] as { id: string; name: string }) : null;
+        setPendingInvite((p) => (p ? { ...p, teamName: row?.name ?? null, checked: true } : p));
+      });
+  }, [pendingInvite]);
+
+  // Load "my teams" whenever sign-in state changes.
+  useEffect(() => {
+    if (!authUser) {
+      setMyTeams([]);
+      setTeamsLoaded(false);
+      return;
+    }
+    loadMyTeams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser]);
 
   // Watch auth state (no-ops entirely when Supabase isn't configured).
   useEffect(() => {
@@ -522,9 +575,13 @@ export default function Home() {
       return;
     }
     setAuthState({ sending: true, sent: false });
+    // Preserve the current path/query (e.g. ?join=CODE) so a sign-in
+    // triggered from an invite link lands back on that invite after the
+    // magic-link round trip.
+    const next = window.location.pathname + window.location.search;
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
     });
     if (error) setAuthState({ sending: false, sent: false, error: error.message });
     else setAuthState({ sending: false, sent: true });
@@ -536,6 +593,95 @@ export default function Home() {
     await supabase.auth.signOut();
     setAuthUser(null);
     setManualLoaded(false);
+    setMyTeams([]);
+    setTeamsLoaded(false);
+    setActiveTeam(null);
+  }
+
+  async function loadMyTeams() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    const { data, error } = await supabase.rpc("get_my_teams");
+    if (!error) setMyTeams((data as TeamSummary[]) || []);
+    setTeamsLoaded(true);
+  }
+
+  async function openTeam(team: TeamSummary) {
+    setActiveTeam(team);
+    setView("team");
+    setRoster([]);
+    setRosterLoading(true);
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setRosterLoading(false);
+      return;
+    }
+    const { data, error } = await supabase.rpc("get_team_roster", { p_team_id: team.id });
+    if (!error) setRoster((data as RosterRow[]) || []);
+    setRosterLoading(false);
+  }
+
+  async function createTeam() {
+    const name = newTeamName.trim();
+    if (!name) {
+      setCreateTeamState({ loading: false, error: "Give the team a name." });
+      return;
+    }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setCreateTeamState({ loading: true });
+    const { data, error } = await supabase.rpc("create_team", { p_name: name });
+    if (error) {
+      setCreateTeamState({ loading: false, error: error.message });
+      return;
+    }
+    setCreateTeamState({ loading: false });
+    setNewTeamName("");
+    await loadMyTeams();
+    const row = Array.isArray(data) && data.length > 0 ? (data[0] as { id: string; name: string; invite_code: string }) : null;
+    if (row) {
+      openTeam({ id: row.id, name: row.name, invite_code: row.invite_code, joined_at: new Date().toISOString(), is_owner: true });
+    }
+  }
+
+  async function joinByCode(rawCode: string, fromPendingInvite = false) {
+    const code = rawCode.trim();
+    if (!code) {
+      setJoinState({ loading: false, error: "Enter an invite code." });
+      return;
+    }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setJoinState({ loading: true });
+    const { data, error } = await supabase.rpc("join_team_by_code", { p_code: code });
+    if (error) {
+      setJoinState({ loading: false, error: error.message });
+      return;
+    }
+    setJoinState({ loading: false, error: undefined });
+    setJoinCodeInput("");
+    if (fromPendingInvite) {
+      setPendingInvite(null);
+      window.history.replaceState({}, "", "/");
+    }
+    await loadMyTeams();
+    const row = Array.isArray(data) && data.length > 0 ? (data[0] as { id: string; name: string }) : null;
+    if (row) {
+      openTeam({ id: row.id, name: row.name, invite_code: code, joined_at: new Date().toISOString(), is_owner: false });
+    } else {
+      setView("teams");
+    }
+  }
+
+  async function copyInvite(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopyState("copied");
+      setTimeout(() => setCopyState("idle"), 1800);
+    } catch {
+      // Clipboard API can be unavailable (permissions, non-secure context)
+      // — the invite URL is still shown in a selectable input either way.
+    }
   }
 
   function setField(key: string, val: string) {
@@ -758,6 +904,195 @@ export default function Home() {
     );
   }
 
+  function renderInviteBanner() {
+    if (!pendingInvite) return null;
+    return (
+      <div className="invite-banner">
+        {!pendingInvite.checked ? (
+          <p>Checking invite link…</p>
+        ) : pendingInvite.teamName ? (
+          <>
+            <p>
+              You&apos;ve been invited to join <strong>{pendingInvite.teamName}</strong>.
+            </p>
+            {authUser ? (
+              <button type="button" className="btn btn-primary" disabled={joinState.loading} onClick={() => joinByCode(pendingInvite.code, true)}>
+                {joinState.loading ? "Joining…" : `Join ${pendingInvite.teamName}`}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => {
+                  setAuthState({ sending: false, sent: false });
+                  setAuthModalOpen(true);
+                }}
+              >
+                Sign in to join
+              </button>
+            )}
+            {joinState.error && <p className="assist-error">{joinState.error}</p>}
+          </>
+        ) : (
+          <p>That invite link doesn&apos;t match a team — double check the link, or ask for a fresh one.</p>
+        )}
+      </div>
+    );
+  }
+
+  function renderTeams() {
+    return (
+      <div className="home">
+        <div className="home-nav">
+          <div className="home-brand">
+            <LogoMark />
+            <span className="home-wordmark">Wavelength</span>
+            <AudioToggle />
+          </div>
+          {renderAuthNav()}
+        </div>
+
+        <section className="teams-hub">
+          <button type="button" className="nav-home-link" onClick={() => setView("home")}>← Back to home</button>
+          <h1 className="step-title" style={{ marginTop: 16, marginBottom: 8 }}>Your teams</h1>
+          <p className="step-subtitle" style={{ marginBottom: 28 }}>
+            Build a shared working agreement with your team, and see who&apos;s added their own personal manual along the way.
+          </p>
+
+          {!supabaseEnabled ? (
+            <p className="empty-state">Team features need accounts set up first — see the project README for setup steps.</p>
+          ) : (
+            <>
+              {renderInviteBanner()}
+
+              {!authUser ? (
+                <div className="invite-banner">
+                  <p>Sign in to create a team, or to join one with an invite link.</p>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setAuthState({ sending: false, sent: false });
+                      setAuthModalOpen(true);
+                    }}
+                  >
+                    Sign in
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {!teamsLoaded ? (
+                    <p className="empty-state">Loading your teams…</p>
+                  ) : myTeams.length === 0 ? (
+                    <p className="empty-state">You&apos;re not on a team yet — create one below, or ask a teammate for their invite link.</p>
+                  ) : (
+                    <div className="team-list">
+                      {myTeams.map((t) => (
+                        <button type="button" key={t.id} className="team-list-item" onClick={() => openTeam(t)}>
+                          <span className="team-list-name">{t.name}</span>
+                          {t.is_owner && <span className="tag">Owner</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="teams-forms">
+                    <div className="teams-form-card">
+                      <h3>Create a team</h3>
+                      <div className="field">
+                        <label htmlFor="new-team-name">Team name</label>
+                        <input
+                          id="new-team-name"
+                          type="text"
+                          value={newTeamName}
+                          placeholder="e.g. Platform Team"
+                          onChange={(e) => setNewTeamName(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && createTeam()}
+                        />
+                      </div>
+                      {createTeamState.error && <p className="assist-error">{createTeamState.error}</p>}
+                      <button type="button" className="btn btn-primary" disabled={createTeamState.loading} onClick={createTeam}>
+                        {createTeamState.loading ? "Creating…" : "Create team"}
+                      </button>
+                    </div>
+                    <div className="teams-form-card">
+                      <h3>Join a team</h3>
+                      <div className="field">
+                        <label htmlFor="join-code">Invite code</label>
+                        <input
+                          id="join-code"
+                          type="text"
+                          value={joinCodeInput}
+                          placeholder="e.g. a1b2c3d4"
+                          onChange={(e) => setJoinCodeInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && joinByCode(joinCodeInput)}
+                        />
+                      </div>
+                      {joinState.error && !pendingInvite && <p className="assist-error">{joinState.error}</p>}
+                      <button type="button" className="btn btn-secondary" disabled={joinState.loading} onClick={() => joinByCode(joinCodeInput)}>
+                        {joinState.loading ? "Joining…" : "Join team"}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  function renderTeamDetail() {
+    if (!activeTeam) return renderTeams();
+    const inviteUrl = `${window.location.origin}/join/${activeTeam.invite_code}`;
+    return (
+      <div className="home">
+        <div className="home-nav">
+          <div className="home-brand">
+            <LogoMark />
+            <span className="home-wordmark">Wavelength</span>
+            <AudioToggle />
+          </div>
+          {renderAuthNav()}
+        </div>
+
+        <section className="teams-hub">
+          <button type="button" className="nav-home-link" onClick={() => setView("teams")}>← All teams</button>
+          <h1 className="step-title" style={{ marginTop: 16, marginBottom: 8 }}>{activeTeam.name}</h1>
+          <p className="step-subtitle" style={{ marginBottom: 20 }}>Share this link so teammates can join.</p>
+
+          <div className="invite-row">
+            <input type="text" readOnly value={inviteUrl} onFocus={(e) => e.target.select()} />
+            <button type="button" className="btn btn-secondary" onClick={() => copyInvite(inviteUrl)}>
+              {copyState === "copied" ? "Copied!" : "Copy link"}
+            </button>
+          </div>
+
+          <h3 className="review-heading" style={{ marginTop: 36 }}>Who&apos;s on this team</h3>
+          {rosterLoading ? (
+            <p className="empty-state">Loading roster…</p>
+          ) : (
+            <div className="roster-list">
+              {roster.map((m) => (
+                <div className="roster-row" key={m.user_id}>
+                  <span className="roster-email">{m.email}</span>
+                  <span className={"roster-badge" + (m.has_manual ? " roster-badge-done" : "")}>
+                    {m.has_manual ? "Manual added" : "No manual yet"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="step-subtitle" style={{ marginTop: 30, marginBottom: 0 }}>
+            A shared team working agreement is coming soon — for now, this is just the roster.
+          </p>
+        </section>
+      </div>
+    );
+  }
+
   function renderModal() {
     if (!previewOpen) return null;
     const title = docTitleFor(SAMPLE_VALUES);
@@ -785,6 +1120,7 @@ export default function Home() {
     if (authUser) {
       return (
         <div className="auth-nav">
+          <button type="button" className="auth-nav-link" onClick={() => setView("teams")}>My teams</button>
           <span className="auth-nav-email">{authUser.email}</span>
           <button type="button" className="auth-nav-link" onClick={signOut}>Sign out</button>
         </div>
@@ -849,7 +1185,13 @@ export default function Home() {
 
   return (
     <div className="app">
-      {view === "home" ? renderHome() : renderWizard()}
+      {view === "home"
+        ? renderHome()
+        : view === "wizard"
+        ? renderWizard()
+        : view === "teams"
+        ? renderTeams()
+        : renderTeamDetail()}
       {renderModal()}
       {renderAuthModal()}
     </div>

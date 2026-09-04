@@ -55,6 +55,45 @@ persistence. No team/invite/collaborative-agreement tables yet (Phases
 2-3, see Roadmap); `supabase/schema.sql` has just the one table on
 purpose and says so in a comment.
 
+## 2026-09-04 — Teams (Phase 2): deny-by-default RLS + security-definer RPCs, not row policies
+
+**Decision:** `teams` and `team_members` have RLS enabled but carry **no
+row-level policies at all** — every read and write goes through one of five
+`security definer` Postgres functions (`create_team`, `join_team_by_code`,
+`get_my_teams`, `get_team_roster`, `get_team_by_invite_code`) instead of
+direct PostgREST table access. See `supabase/schema_phase2.sql`.
+
+**Why:** The invite-code join flow needs a signed-out visitor to preview a
+team by code (so `/join/CODE` can say "You've been invited to join
+<team>") before they've joined it or even signed in — that's an access
+pattern ("can see this one row, identified by a secret-ish code, but
+nothing else in the table") that's awkward to express as a row-level
+`using` predicate without either leaking the whole `teams` table via the
+anon key or writing a policy that's easy to get subtly wrong. A
+`security definer` function scoped to exactly the columns and checks it
+needs is easier to reason about and review than a matrix of policies, and
+it means a leaked/misused anon key can't enumerate teams or memberships by
+querying the tables directly — the tables are simply not reachable except
+through these functions. `get_team_by_invite_code` is the only one granted
+to the `anon` role (read-only, returns just `id`/`name`); the rest require
+`authenticated`.
+
+**Team joining via shareable link:** invite codes are short (8-char,
+lowercase hex-ish, generated server-side from `gen_random_uuid()`) rather
+than the raw team UUID, and are exposed at a nicer URL — `/join/CODE`,
+a server component that immediately redirects to `/?join=CODE` — because
+the single-page app owns the whole join UX (preview, sign-in prompt, join)
+in `app/page.tsx` and there's no separate router beyond `/`. The code
+survives the magic-link sign-in round trip via the existing `next` query
+param on `/auth/callback` (already built for Phase 1), so "click invite
+link while signed out → sign in → land back on the invite, now joinable"
+works without extra state.
+
+**Scope:** membership only — creating a team, joining it, seeing who's on
+it and who's completed their personal manual. The Team Working Agreement
+content itself (the actual "how should we work" questions and shared
+draft) is Phase 3, not touched here.
+
 ## 2026-08-24 — Direct Anthropic API key, not Vercel AI Gateway
 
 **Decision:** AI assist calls Anthropic directly via `@ai-sdk/anthropic`

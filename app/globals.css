@@ -143,6 +143,34 @@ a:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
 .home-brand { display: flex; align-items: center; gap: 10px; }
 .home-wordmark { font-family: 'Newsreader', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--ink); }
 
+.teams-hub { width: 100%; max-width: 640px; text-align: left; }
+
+.invite-banner { background: color-mix(in oklch, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in oklch, var(--accent) 30%, var(--line)); border-radius: 12px; padding: 18px 20px; margin-bottom: 28px; }
+.invite-banner p { margin: 0 0 12px; font-size: 14.5px; color: var(--ink); }
+.invite-banner p:last-child { margin-bottom: 0; }
+
+.team-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 32px; }
+.team-list-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; font-size: 15px; font-family: inherit; color: var(--ink); cursor: pointer; }
+.team-list-item:hover { border-color: var(--line-strong); }
+.team-list-name { font-weight: 600; }
+
+.teams-forms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.teams-form-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+.teams-form-card h3 { font-family: 'Newsreader', Georgia, serif; font-size: 16px; margin: 0 0 16px; color: var(--ink); }
+
+.invite-row { display: flex; gap: 10px; margin-bottom: 8px; }
+.invite-row input { flex: 1; border: 1px solid var(--line-strong); border-radius: 10px; padding: 12px 14px; font-size: 13.5px; font-family: inherit; color: var(--muted); background: var(--surface); }
+
+.roster-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.roster-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.roster-email { font-size: 14px; color: var(--ink); }
+.roster-badge { font-size: 12px; font-weight: 600; color: var(--muted); background: color-mix(in oklch, var(--line) 50%, transparent); border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+.roster-badge-done { color: color-mix(in oklch, var(--accent) 55%, black); background: color-mix(in oklch, var(--accent) 15%, white); }
+
+@media (max-width: 760px) {
+  .teams-forms { grid-template-columns: 1fr; }
+}
+
 .hero { width: 100%; max-width: 720px; text-align: center; display: flex; flex-direction: column; align-items: center; margin-bottom: 40px; }
 .hero-title { font-family: 'Newsreader', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15; margin: 0 0 14px; color: var(--ink); }
 .hero-subtitle { font-size: 16px; color: var(--muted); line-height: 1.6; max-width: 560px; margin: 0 0 24px; }

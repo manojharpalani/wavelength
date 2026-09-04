@@ -100,13 +100,14 @@ builds (optional, but encouraged) their own personal manual along the way.
 Phased so each step ships independent value:
 
 - **Phase 0 — done.** Optional self-reported Myers-Briggs type field.
-- **Phase 1 — in progress.** Accounts + persistence (Supabase auth + a
-  Postgres `personal_manuals` table), described above. Converts the
-  personal manual from session-only to saved-per-account; no team concept
-  yet.
-- **Phase 2 — planned.** Teams: create a team, invite members via a
-  shareable link, a roster showing who's joined and who's completed their
-  personal manual.
+- **Phase 1 — done.** Accounts + persistence (Supabase auth + a Postgres
+  `personal_manuals` table), described above. Converts the personal manual
+  from session-only to saved-per-account; no team concept yet.
+- **Phase 2 — done.** Teams: create a team, invite members via a shareable
+  link (`/join/CODE`), a roster showing who's joined and who's completed
+  their personal manual. `teams`/`team_members` use deny-by-default RLS —
+  all access goes through `security definer` RPCs (see
+  `supabase/schema_phase2.sql` and docs/DECISIONS.md).
 - **Phase 3 — planned.** Collaborative Team Working Agreement: each member
   answers a shared set of "how should we work" questions (communication
   norms, meeting rhythm, decision-making, engineering norms like PR review
