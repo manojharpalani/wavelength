@@ -359,18 +359,22 @@ interface AssistState {
 function AssistButton({
   state,
   onClick,
+  label = "Help me write this",
+  loadingLabel = "Polishing…",
 }: {
   state: AssistState | undefined;
   onClick: () => void;
+  label?: string;
+  loadingLabel?: string;
 }) {
   return (
     <button type="button" className="assist-btn" disabled={state?.loading} onClick={onClick}>
       {state?.loading ? (
         <>
-          <span className="assist-spinner" /> Polishing…
+          <span className="assist-spinner" /> {loadingLabel}
         </>
       ) : (
-        <>✨ Help me write this</>
+        <>✨ {label}</>
       )}
     </button>
   );
@@ -460,12 +464,26 @@ const AGREEMENT_QUESTIONS: AgreementQuestion[] = [
 type AgreementResponseRow = { question_key: string; user_id: string; email: string; answer: string; updated_at: string };
 type AgreementDraftRow = { question_key: string; draft_text: string; updated_at: string; updated_by_email: string | null };
 
+// A finished-looking sample, shown in the "View a sample" preview — not
+// real team data, just something concrete for a first-time visitor to
+// picture their own team filling in.
+const SAMPLE_AGREEMENT: Record<string, string> = {
+  communication: "We default to async — Slack threads and written docs — and save meetings for things that need real discussion. If something's blocking you, ping the person directly instead of waiting on a channel.",
+  meetingRhythm: "A 15-minute standup daily, 1:1s every other week, and no internal meetings on Fridays.",
+  decisionMaking: "Whoever's closest to the work decides. For anything hard to reverse, we loop in the team first.",
+  prReview: "Same-day review turnaround. Small PRs are strongly preferred. One approval to merge.",
+  onCall: "Acknowledge a page within 15 minutes. Escalate if you're stuck for more than 30.",
+  coreHours: "Overlap 10am–2pm ET. Outside that, work when it suits your timezone and focus.",
+  feedbackConflict: "Say it directly and soon, privately first. Disagree openly in design reviews — once we decide, we commit.",
+  definitionOfDone: "Tests pass, docs are updated, it's been reviewed, and it's deployed — not just merged.",
+};
+
 export default function Home() {
   const [view, setView] = useState<"home" | "wizard" | "teams" | "team" | "agreement">("home");
   const [step, setStep] = useState(0);
   const [values, setValues] = useState<Values>({});
   const [exportView, setExportView] = useState<"detailed" | "onepager">("detailed");
-  const [previewOpen, setPreviewOpen] = useState<"onepager" | "detailed" | null>(null);
+  const [previewOpen, setPreviewOpen] = useState<"onepager" | "detailed" | "agreement" | null>(null);
   const [assist, setAssist] = useState<Record<string, AssistState>>({});
 
   const supabaseEnabled = isSupabaseConfigured();
@@ -487,6 +505,15 @@ export default function Home() {
   const [joinState, setJoinState] = useState<{ loading: boolean; error?: string }>({ loading: false });
   const [pendingInvite, setPendingInvite] = useState<{ code: string; teamName: string | null; checked: boolean } | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
+  const [renaming, setRenaming] = useState(false);
+  const [renameInput, setRenameInput] = useState("");
+  const [renameState, setRenameState] = useState<{ loading: boolean; error?: string }>({ loading: false });
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [teamActionState, setTeamActionState] = useState<{ loading: boolean; error?: string }>({ loading: false });
+  const [teammateManual, setTeammateManual] = useState<{ email: string; values: Values; mode: "onepager" | "detailed" } | null>(null);
+  const [teammateManualLoading, setTeammateManualLoading] = useState(false);
+  const [teammateManualError, setTeammateManualError] = useState<string | undefined>(undefined);
 
   const [agreementTab, setAgreementTab] = useState<"respond" | "compare" | "draft">("respond");
   const [agreementLoading, setAgreementLoading] = useState(false);
@@ -643,6 +670,13 @@ export default function Home() {
     setView("team");
     setRoster([]);
     setRosterLoading(true);
+    setRenaming(false);
+    setConfirmingLeave(false);
+    setConfirmingDelete(false);
+    setTeamActionState({ loading: false });
+    // Also pull the agreement's status so the "Team Working Agreement" card
+    // can show where things stand without making someone click into it.
+    loadAgreementData(team.id);
     const supabase = getSupabaseBrowserClient();
     if (!supabase) {
       setRosterLoading(false);
@@ -716,6 +750,92 @@ export default function Home() {
     }
   }
 
+  async function viewTeammateManual(m: RosterRow) {
+    if (!activeTeam) return;
+    setTeammateManualLoading(true);
+    setTeammateManualError(undefined);
+    setTeammateManual({ email: m.email, values: {}, mode: "onepager" });
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setTeammateManualLoading(false);
+      return;
+    }
+    const { data, error } = await supabase.rpc("get_team_member_manual", { p_team_id: activeTeam.id, p_user_id: m.user_id });
+    const row = Array.isArray(data) && data.length > 0 ? (data[0] as { values: Values }) : null;
+    if (error || !row) {
+      console.error("Wavelength: loading teammate manual failed", error);
+      setTeammateManualError("Couldn't load this manual right now — try again in a moment.");
+    } else {
+      setTeammateManual({ email: m.email, values: row.values || {}, mode: "onepager" });
+    }
+    setTeammateManualLoading(false);
+  }
+
+  async function saveTeamRename() {
+    if (!activeTeam) return;
+    const name = renameInput.trim();
+    if (!name) {
+      setRenameState({ loading: false, error: "Give the team a name." });
+      return;
+    }
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setRenameState({ loading: true });
+    const { error } = await supabase.rpc("rename_team", { p_team_id: activeTeam.id, p_name: name });
+    if (error) {
+      setRenameState({ loading: false, error: error.message });
+      return;
+    }
+    setRenameState({ loading: false });
+    setRenaming(false);
+    setActiveTeam((t) => (t ? { ...t, name } : t));
+    setMyTeams((teams) => teams.map((t) => (t.id === activeTeam.id ? { ...t, name } : t)));
+  }
+
+  async function leaveActiveTeam() {
+    if (!activeTeam) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setTeamActionState({ loading: true });
+    const { error } = await supabase.rpc("leave_team", { p_team_id: activeTeam.id });
+    if (error) {
+      setTeamActionState({ loading: false, error: error.message });
+      return;
+    }
+    setTeamActionState({ loading: false });
+    setActiveTeam(null);
+    await loadMyTeams();
+    setView("teams");
+  }
+
+  async function deleteActiveTeam() {
+    if (!activeTeam) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setTeamActionState({ loading: true });
+    const { error } = await supabase.rpc("delete_team", { p_team_id: activeTeam.id });
+    if (error) {
+      setTeamActionState({ loading: false, error: error.message });
+      return;
+    }
+    setTeamActionState({ loading: false });
+    setActiveTeam(null);
+    await loadMyTeams();
+    setView("teams");
+  }
+
+  function agreementStatusSummary() {
+    if (agreementLoading) return "Checking status…";
+    if (agreementStatus.finalizedAt) {
+      return `Finalized ${new Date(agreementStatus.finalizedAt).toLocaleDateString()} — everyone answers a shared set of "how we work" questions, then shapes the answers into one agreement together.`;
+    }
+    const answeredCount = AGREEMENT_QUESTIONS.filter((q) => (agreementDraft[q.key] || "").trim()).length;
+    if (answeredCount > 0) {
+      return `Draft in progress — ${answeredCount} of ${AGREEMENT_QUESTIONS.length} questions have a shared answer so far.`;
+    }
+    return `Not started yet — everyone answers a shared set of "how we work" questions, then shapes the answers into one agreement together.`;
+  }
+
   async function openAgreement(team: TeamSummary) {
     setActiveTeam(team);
     setView("agreement");
@@ -766,15 +886,17 @@ export default function Home() {
       const supabase = getSupabaseBrowserClient();
       if (!supabase) return;
       supabase.rpc("submit_agreement_response", { p_team_id: teamId, p_question_key: key, p_answer: val }).then(({ error }) => {
-        if (!error) {
-          // Keep the "everyone's answers" tab in sync with what we just saved.
-          setAgreementResponses((rows) => {
-            const email = authUser?.email || "";
-            const others = rows.filter((r) => !(r.question_key === key && r.user_id === authUser?.id));
-            if (!val.trim()) return others;
-            return [...others, { question_key: key, user_id: authUser?.id || "", email, answer: val, updated_at: new Date().toISOString() }];
-          });
+        if (error) {
+          console.error("Wavelength: saving agreement response failed", error);
+          return;
         }
+        // Keep the "everyone's answers" tab in sync with what we just saved.
+        setAgreementResponses((rows) => {
+          const email = authUser?.email || "";
+          const others = rows.filter((r) => !(r.question_key === key && r.user_id === authUser?.id));
+          if (!val.trim()) return others;
+          return [...others, { question_key: key, user_id: authUser?.id || "", email, answer: val, updated_at: new Date().toISOString() }];
+        });
       });
     }, 900);
   }
@@ -788,7 +910,9 @@ export default function Home() {
     draftSaveTimers.current[key] = setTimeout(() => {
       const supabase = getSupabaseBrowserClient();
       if (!supabase) return;
-      supabase.rpc("save_agreement_draft", { p_team_id: teamId, p_question_key: key, p_draft_text: val });
+      supabase.rpc("save_agreement_draft", { p_team_id: teamId, p_question_key: key, p_draft_text: val }).then(({ error }) => {
+        if (error) console.error("Wavelength: saving agreement draft failed", error);
+      });
     }, 900);
   }
 
@@ -824,11 +948,13 @@ export default function Home() {
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
     const { error } = await supabase.rpc("set_agreement_finalized", { p_team_id: activeTeam.id, p_finalized: finalized });
-    if (!error) {
-      setAgreementStatus(
-        finalized ? { finalizedAt: new Date().toISOString(), finalizedByEmail: authUser?.email ?? null } : { finalizedAt: null, finalizedByEmail: null }
-      );
+    if (error) {
+      console.error("Wavelength: updating finalized status failed", error);
+      return;
     }
+    setAgreementStatus(
+      finalized ? { finalizedAt: new Date().toISOString(), finalizedByEmail: authUser?.email ?? null } : { finalizedAt: null, finalizedByEmail: null }
+    );
   }
 
   function setField(key: string, val: string) {
@@ -936,17 +1062,18 @@ export default function Home() {
 
         <section className="hero">
           <h1 className="hero-title">
-            A wizard to build your
+            Understand each other,
             <br />
-            <span style={{ color: "var(--accent)" }}>personal user manual</span>.
+            <span style={{ color: "var(--accent)" }}>work better together</span>.
           </h1>
           <p className="hero-subtitle">
-            Takes 5 mins and a few honest answers.
+            Build your personal manual, then bring your team into a shared working agreement — a few honest answers at a time.
           </p>
           <div className="hero-actions">
             <button type="button" className="btn btn-primary" onClick={() => setView("wizard")}>{ctaLabel}</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setPreviewOpen("onepager")}>View sample</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setView("teams")}>Start or join a team</button>
           </div>
+          <button type="button" className="btn btn-ghost hero-sample-link" onClick={() => setPreviewOpen("onepager")}>View a sample</button>
         </section>
 
         <section className="vision-section">
@@ -1206,7 +1333,44 @@ export default function Home() {
 
         <section className="teams-hub">
           <button type="button" className="nav-home-link" onClick={() => setView("teams")}>← All teams</button>
-          <h1 className="step-title" style={{ marginTop: 16, marginBottom: 8 }}>{activeTeam.name}</h1>
+
+          {renaming ? (
+            <div className="field" style={{ maxWidth: 360, marginTop: 16 }}>
+              <label htmlFor="rename-team-input">Team name</label>
+              <input
+                id="rename-team-input"
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveTeamRename()}
+                autoFocus
+              />
+              {renameState.error && <p className="assist-error">{renameState.error}</p>}
+              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                <button type="button" className="btn btn-secondary" disabled={renameState.loading} onClick={saveTeamRename}>
+                  {renameState.loading ? "Saving…" : "Save name"}
+                </button>
+                <button type="button" className="btn btn-ghost" onClick={() => setRenaming(false)}>Cancel</button>
+              </div>
+            </div>
+          ) : (
+            <div className="team-title-row">
+              <h1 className="step-title" style={{ marginTop: 16, marginBottom: 8 }}>{activeTeam.name}</h1>
+              {activeTeam.is_owner && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => {
+                    setRenameInput(activeTeam.name);
+                    setRenameState({ loading: false });
+                    setRenaming(true);
+                  }}
+                >
+                  Rename
+                </button>
+              )}
+            </div>
+          )}
           <p className="step-subtitle" style={{ marginBottom: 20 }}>Share this link so teammates can join.</p>
 
           <div className="invite-row">
@@ -1221,34 +1385,109 @@ export default function Home() {
             <p className="empty-state">Loading roster…</p>
           ) : (
             <div className="roster-list">
-              {roster.map((m) => (
-                <div className="roster-row" key={m.user_id}>
-                  <span className="roster-email">{m.email}</span>
-                  <span className={"roster-badge" + (m.has_manual ? " roster-badge-done" : "")}>
-                    {m.has_manual ? "Manual added" : "No manual yet"}
-                  </span>
-                </div>
-              ))}
+              {roster.map((m) => {
+                const canView = m.has_manual && m.user_id !== authUser?.id;
+                const rowContent = (
+                  <>
+                    <span className="roster-email">{m.email}{m.user_id === authUser?.id ? " (you)" : ""}</span>
+                    <span className={"roster-badge" + (m.has_manual ? " roster-badge-done" : "")}>
+                      {m.has_manual ? "Manual added" : "No manual yet"}
+                    </span>
+                  </>
+                );
+                return canView ? (
+                  <button type="button" className="roster-row roster-row-clickable" key={m.user_id} onClick={() => viewTeammateManual(m)}>
+                    {rowContent}
+                  </button>
+                ) : (
+                  <div className="roster-row" key={m.user_id}>
+                    {rowContent}
+                  </div>
+                );
+              })}
             </div>
           )}
 
           <div className="agreement-cta">
             <div>
               <h3 className="review-heading" style={{ marginBottom: 6 }}>Team Working Agreement</h3>
-              <p className="step-subtitle" style={{ marginBottom: 0 }}>
-                Everyone answers a shared set of "how we work" questions, then shapes the answers into one agreement together.
-              </p>
+              <p className="step-subtitle" style={{ marginBottom: 0 }}>{agreementStatusSummary()}</p>
             </div>
             <button type="button" className="btn btn-primary" onClick={() => openAgreement(activeTeam)}>Open agreement</button>
           </div>
+
+          <div className="danger-zone">
+            {teamActionState.error && <p className="assist-error">{teamActionState.error}</p>}
+            {activeTeam.is_owner ? (
+              confirmingDelete ? (
+                <>
+                  <p className="step-subtitle" style={{ marginBottom: 10 }}>
+                    Delete &quot;{activeTeam.name}&quot; for everyone? This removes the roster and the working agreement — it can&apos;t be undone.
+                  </p>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <button type="button" className="btn btn-primary btn-danger" disabled={teamActionState.loading} onClick={deleteActiveTeam}>
+                      {teamActionState.loading ? "Deleting…" : "Delete for good"}
+                    </button>
+                    <button type="button" className="btn btn-ghost" onClick={() => setConfirmingDelete(false)}>Cancel</button>
+                  </div>
+                </>
+              ) : (
+                <button type="button" className="btn btn-ghost danger-link" onClick={() => setConfirmingDelete(true)}>Delete team</button>
+              )
+            ) : confirmingLeave ? (
+              <>
+                <p className="step-subtitle" style={{ marginBottom: 10 }}>Leave &quot;{activeTeam.name}&quot;? You can rejoin later with an invite link.</p>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button type="button" className="btn btn-secondary" disabled={teamActionState.loading} onClick={leaveActiveTeam}>
+                    {teamActionState.loading ? "Leaving…" : "Leave team"}
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => setConfirmingLeave(false)}>Cancel</button>
+                </div>
+              </>
+            ) : (
+              <button type="button" className="btn btn-ghost danger-link" onClick={() => setConfirmingLeave(true)}>Leave team</button>
+            )}
+          </div>
         </section>
+        {renderTeammateManualModal()}
+      </div>
+    );
+  }
+
+  function renderTeammateManualModal() {
+    if (!teammateManual) return null;
+    const title = isFilled(teammateManual.values.name) ? `Working With ${teammateManual.values.name.trim()}` : `Working With ${teammateManual.email}`;
+    return (
+      <div className="preview-backdrop" onClick={() => setTeammateManual(null)}>
+        <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="preview-modal-head">
+            <span className="kicker">{teammateManual.email}</span>
+            <button type="button" className="btn btn-ghost close-btn" onClick={() => setTeammateManual(null)}>Close</button>
+          </div>
+          <h2 className="step-title" style={{ fontSize: 26 }}>{title}</h2>
+          <div className="pill-group" style={{ marginBottom: 26 }}>
+            <button type="button" className={"pill" + (teammateManual.mode === "onepager" ? " selected" : "")} onClick={() => setTeammateManual((t) => (t ? { ...t, mode: "onepager" } : t))}>One-pager</button>
+            <button type="button" className={"pill" + (teammateManual.mode === "detailed" ? " selected" : "")} onClick={() => setTeammateManual((t) => (t ? { ...t, mode: "detailed" } : t))}>Detailed</button>
+          </div>
+          {teammateManualLoading ? (
+            <p className="empty-state">Loading…</p>
+          ) : teammateManualError ? (
+            <p className="empty-state">{teammateManualError}</p>
+          ) : (
+            <ManualBody values={teammateManual.values} mode={teammateManual.mode} />
+          )}
+        </div>
       </div>
     );
   }
 
   function renderAgreementRespond() {
+    const answeredCount = AGREEMENT_QUESTIONS.filter((q) => (myResponses[q.key] || "").trim()).length;
     return (
       <div className="agreement-questions">
+        <p className="step-subtitle" style={{ marginBottom: 22 }}>
+          You&apos;ve answered {answeredCount} of {AGREEMENT_QUESTIONS.length} — skip any you&apos;re not sure about, you can always come back.
+        </p>
         {AGREEMENT_QUESTIONS.map((q) => (
           <div className="field" key={q.key}>
             <label htmlFor={`aq-${q.key}`}>{q.label}</label>
@@ -1281,7 +1520,10 @@ export default function Home() {
                 <div className="agreement-answer-list">
                   {rows.map((r) => (
                     <div className="agreement-answer-row" key={r.user_id}>
-                      <span className="roster-email">{r.email}</span>
+                      <span className="roster-email">
+                        {r.email}
+                        {r.user_id === authUser?.id ? " (you)" : ""}
+                      </span>
                       <p className="review-value" style={{ margin: "4px 0 0" }}>{r.answer}</p>
                     </div>
                   ))}
@@ -1296,8 +1538,38 @@ export default function Home() {
 
   function renderAgreementDraft() {
     const finalized = Boolean(agreementStatus.finalizedAt);
+
+    if (finalized) {
+      return (
+        <div className="agreement-draft">
+          <div className="agreement-finalize agreement-finalize-top">
+            <p className="step-subtitle" style={{ marginBottom: 0 }}>
+              Finalized {new Date(agreementStatus.finalizedAt as string).toLocaleDateString()}
+              {agreementStatus.finalizedByEmail ? ` by ${agreementStatus.finalizedByEmail}` : ""}. It&apos;s read-only until someone edits it.
+            </p>
+            <div className="agreement-finalize-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => window.print()}>Print / Save as PDF</button>
+              <button type="button" className="btn btn-ghost" onClick={() => setFinalized(false)}>Edit agreement</button>
+            </div>
+          </div>
+          {AGREEMENT_QUESTIONS.map((q) => (
+            <div className="review-section" key={q.key}>
+              <h3 className="review-heading">{q.label}</h3>
+              <p className="review-value">{(agreementDraft[q.key] || "").trim() || "Not answered."}</p>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    const answeredCount = AGREEMENT_QUESTIONS.filter((q) => (agreementDraft[q.key] || "").trim()).length;
+    const hasDraftContent = answeredCount > 0;
+
     return (
       <div className="agreement-draft">
+        <p className="step-subtitle" style={{ marginBottom: 22 }}>
+          {answeredCount} of {AGREEMENT_QUESTIONS.length} questions have a shared answer so far.
+        </p>
         {AGREEMENT_QUESTIONS.map((q) => {
           const state = synthesis[q.key];
           const answerCount = agreementResponses.filter((r) => r.question_key === q.key).length;
@@ -1305,8 +1577,18 @@ export default function Home() {
             <div className="field" key={q.key}>
               <div className="field-label-row">
                 <label htmlFor={`ad-${q.key}`}>{q.label}</label>
-                <AssistButton state={state} onClick={() => runAgreementSynthesis(q)} />
+                <AssistButton
+                  state={state}
+                  onClick={() => runAgreementSynthesis(q)}
+                  label={answerCount > 0 ? `Draft from ${answerCount} answer${answerCount === 1 ? "" : "s"}` : "Help me write this"}
+                  loadingLabel="Drafting…"
+                />
               </div>
+              {answerCount > 0 && (
+                <span className="roster-badge" style={{ display: "inline-block", marginBottom: 8 }}>
+                  {answerCount} of {roster.length || 1} answered
+                </span>
+              )}
               <textarea
                 id={`ad-${q.key}`}
                 value={agreementDraft[q.key] || ""}
@@ -1319,25 +1601,12 @@ export default function Home() {
         })}
 
         <div className="agreement-finalize">
-          {finalized ? (
-            <>
-              <p className="step-subtitle" style={{ marginBottom: 0 }}>
-                Finalized {new Date(agreementStatus.finalizedAt as string).toLocaleDateString()}
-                {agreementStatus.finalizedByEmail ? ` by ${agreementStatus.finalizedByEmail}` : ""}.
-              </p>
-              <div className="agreement-finalize-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => window.print()}>Print / Save as PDF</button>
-                <button type="button" className="btn btn-ghost" onClick={() => setFinalized(false)}>Reopen for edits</button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="step-subtitle" style={{ marginBottom: 0 }}>
-                Editing the draft reopens it if it was already finalized — mark it finalized once the team's happy with it.
-              </p>
-              <button type="button" className="btn btn-primary" onClick={() => setFinalized(true)}>Mark as finalized</button>
-            </>
-          )}
+          <p className="step-subtitle" style={{ marginBottom: 0 }}>
+            {hasDraftContent
+              ? "Once the team's happy with it, mark it finalized — it becomes read-only and ready to print."
+              : "Write at least one shared answer before finalizing."}
+          </p>
+          <button type="button" className="btn btn-primary" disabled={!hasDraftContent} onClick={() => setFinalized(true)}>Mark as finalized</button>
         </div>
       </div>
     );
@@ -1404,21 +1673,31 @@ export default function Home() {
 
   function renderModal() {
     if (!previewOpen) return null;
-    const title = docTitleFor(SAMPLE_VALUES);
+    const isAgreement = previewOpen === "agreement";
+    const title = isAgreement ? "Platform Team" : docTitleFor(SAMPLE_VALUES);
     return (
       <div className="preview-backdrop" onClick={() => setPreviewOpen(null)}>
         <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
           <div className="preview-modal-head">
-            <span className="kicker">Sample manual</span>
+            <span className="kicker">{isAgreement ? "Sample team agreement" : "Sample manual"}</span>
             <button type="button" className="btn btn-ghost close-btn" onClick={() => setPreviewOpen(null)}>Close</button>
           </div>
           <h2 className="step-title" style={{ fontSize: 26 }}>{title}</h2>
-          <p className="step-subtitle" style={{ marginBottom: 20 }}>Just a glimpse of what&apos;s possible — your own words will live here soon enough.</p>
+          <p className="step-subtitle" style={{ marginBottom: 20 }}>
+            {isAgreement
+              ? "A glimpse of a finalized Team Working Agreement — every team's will read differently."
+              : "Just a glimpse of what's possible — your own words will live here soon enough."}
+          </p>
           <div className="pill-group" style={{ marginBottom: 26 }}>
             <button type="button" className={"pill" + (previewOpen === "onepager" ? " selected" : "")} onClick={() => setPreviewOpen("onepager")}>One-pager</button>
             <button type="button" className={"pill" + (previewOpen === "detailed" ? " selected" : "")} onClick={() => setPreviewOpen("detailed")}>Detailed</button>
+            <button type="button" className={"pill" + (previewOpen === "agreement" ? " selected" : "")} onClick={() => setPreviewOpen("agreement")}>Team agreement</button>
           </div>
-          <ManualBody values={SAMPLE_VALUES} mode={previewOpen} />
+          {isAgreement ? (
+            <ReviewSection heading="How We Work" rows={AGREEMENT_QUESTIONS.map((q) => ({ label: q.label, value: SAMPLE_AGREEMENT[q.key] }))} />
+          ) : (
+            <ManualBody values={SAMPLE_VALUES} mode={previewOpen} />
+          )}
         </div>
       </div>
     );
@@ -1426,27 +1705,26 @@ export default function Home() {
 
   function renderAuthNav() {
     if (!supabaseEnabled) return null;
-    if (authUser) {
-      return (
-        <div className="auth-nav">
-          <button type="button" className="auth-nav-link" onClick={() => setView("teams")}>My teams</button>
-          <span className="auth-nav-email">{authUser.email}</span>
-          <button type="button" className="auth-nav-link" onClick={signOut}>Sign out</button>
-        </div>
-      );
-    }
     return (
       <div className="auth-nav">
-        <button
-          type="button"
-          className="auth-nav-link"
-          onClick={() => {
-            setAuthState({ sending: false, sent: false });
-            setAuthModalOpen(true);
-          }}
-        >
-          Sign in to save your progress
-        </button>
+        <button type="button" className="auth-nav-link" onClick={() => setView("teams")}>Teams</button>
+        {authUser ? (
+          <>
+            <span className="auth-nav-email">{authUser.email}</span>
+            <button type="button" className="auth-nav-link" onClick={signOut}>Sign out</button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="auth-nav-link"
+            onClick={() => {
+              setAuthState({ sending: false, sent: false });
+              setAuthModalOpen(true);
+            }}
+          >
+            Sign in to save your progress
+          </button>
+        )}
       </div>
     );
   }

@@ -5,6 +5,99 @@ reasoning, so the "why" survives past whoever made the call. Append new
 entries at the top; don't rewrite history — if a decision gets reversed,
 add a new entry that supersedes it and note what changed.
 
+## 2026-09-04 — Fixed: `.home`'s flex centering silently clipped the top of any tall view
+
+**Decision:** Changed `.home { justify-content: center; }` to
+`justify-content: safe center` in `app/globals.css`.
+
+**Why:** Found while screenshot-verifying the finalized Team Working
+Agreement view, which is taller than a typical viewport. The page's top
+(nav, heading, tabs) was permanently unreachable no matter how far down
+the container was scrolled — `scrollTop` read `0` at every ancestor, yet
+`getBoundingClientRect()` showed the nav rendering ~445px *above* the
+viewport. Root cause: `.home` is a flex column with `overflow-y: auto` and
+`justify-content: center`; when a flex container's content overflows its
+box, `center` clips symmetrically from both ends rather than falling back
+to start-alignment, and there's no scroll position that reveals content
+clipped off the top. This predates this session — any sufficiently tall
+`.home` view would have hit it — but nothing had been tall enough to
+trigger it visibly until the finalized agreement view. `safe center` is
+the CSS Box Alignment spec's fallback keyword: centers when content fits,
+but falls back to start-alignment (nothing clipped, fully scrollable) once
+it overflows. Verified via `getBoundingClientRect()` (nav now renders at
+the correct top offset) and a full top-to-bottom screenshot of the
+finalized agreement view.
+
+## 2026-09-04 — Reversed: finalizing the Team Working Agreement makes it read-only (supersedes "editing reopens automatically")
+
+**Decision:** Once a Team Working Agreement is finalized, the draft
+textareas are no longer rendered at all — the view shows each answer as
+plain read-only text, a "Print / Save as PDF" button, and an explicit
+"Edit agreement" button that's the only way back into edit mode. This
+replaces the original Phase 3 design, where the draft stayed editable
+after finalizing and any keystroke silently cleared `finalized_at`.
+
+**Why:** Flagged during this session's audit as a concrete way the feature
+was half-baked. The original behavior had no confirmation and often no
+visible sign anything had changed — someone opening a finalized agreement
+just to read it could click into a textarea while scrolling or selecting
+text and silently un-finalize it for the whole team, with the only tell
+being a "finalized" banner quietly disappearing. Read-only-until-you-say-
+so is the behavior people actually expect from "finalized."
+
+**Consequence:** `save_agreement_draft`'s auto-clear of `finalized_at`
+(added in the original Phase 3 schema) is now defense-in-depth rather than
+the primary mechanism — the UI never intentionally calls it while
+finalized, since the draft form isn't editable in that state without
+clicking "Edit agreement" first. Left in place rather than removed, in
+case a client is ever in a stale state.
+
+## 2026-09-04 — Teammates can view each other's completed personal manual
+
+**Decision:** Added `get_team_member_manual(p_team_id, p_user_id)`, a
+`security definer` RPC that returns another team member's manual `values`,
+after checking both the caller and the target user are members of the
+same team. See `supabase/schema_manual_sharing.sql`. Clicking a teammate
+with a completed manual in the team roster opens it in a read-only modal,
+reusing the same one-pager rendering as the personal wizard's review step.
+This does **not** add or change any row-level policy on `personal_manuals`
+itself — that table stays owner-only at the RLS layer; access to a
+teammate's row is mediated entirely through this one function, same
+pattern as every other team-scoped read.
+
+**Why:** Also flagged during the audit — the roster already showed a
+checkmark for "has completed their manual," which told you a manual
+existed but not what it said, and had no path to actually read it. Given
+manuals and teams are now the same product journey (build your manual,
+then build your team's agreement), being unable to read a teammate's
+manual from their team page was a real gap, not a missing nice-to-have.
+
+**Scope:** read-only, no editing someone else's manual, and no
+notification to the manual's owner when a teammate views it.
+
+## 2026-09-04 — Team management: rename, leave, delete
+
+**Decision:** Added three `security definer` RPCs in
+`supabase/schema_team_management.sql`, same deny-by-default RLS pattern as
+the rest of the team-scoped tables: `rename_team` (owner-only, via
+`teams.created_by = auth.uid()`), `leave_team` (any member except the
+owner — the owner gets an explicit error telling them to delete the team
+instead), and `delete_team` (owner-only; relies on the existing `on delete
+cascade` foreign keys from `schema_phase2.sql`/`schema_phase3.sql` to clean
+up membership rows, agreement responses, drafts, and the finalized record).
+The team detail page gained a rename-in-place control next to the team
+name and a "danger zone" section at the bottom with a two-step inline
+confirm for leave/delete.
+
+**Why:** Another audit finding — a team, once created, had no way to fix a
+typo'd name, leave a team you joined by mistake, or delete one that's no
+longer needed. Every team was effectively permanent.
+
+**Deferred:** ownership transfer. An owner who wants out currently has to
+delete the whole team rather than hand it to someone else and leave — a
+real limitation for anything but a small, informal team, called out in
+`docs/REQUIREMENTS.md` under "Explicitly out of scope."
+
 ## 2026-09-04 — Reversed: add optional accounts + persistence via Supabase (supersedes "no backend" scoping)
 
 **Decision:** Wavelength gets an *optional* backend — Supabase for auth
@@ -103,7 +196,7 @@ graceful-degradation setup as the personal manual's "Help me write this").
 The result lands in the shared draft textarea, editable like anything
 else — it's a starting point, not a final answer, and any member can
 rewrite it by hand instead. There's no "auto-finalize" path; finalizing is
-always a deliberate human action (see below).
+always a deliberate human action (see the read-only-finalize entry above).
 
 **Why:** Synthesizing 3-8 short free-text answers into one coherent "we"
 statement is exactly the kind of first-draft-from-messy-input task the
@@ -120,13 +213,6 @@ lower guardrails (anyone can overwrite anyone else's draft edit), accepted
 for v1 given team sizes are expected to be small; the RPCs still gate
 everything on team membership, so it's a trust-your-teammates model, not
 an open one.
-
-**Finalizing is reversible by editing, not a separate "reopen" workflow:**
-`save_agreement_draft` clears `finalized_at` on any draft edit, so
-"finalized" just means "nobody's touched it since it was marked done" —
-there's also an explicit "Reopen for edits" button, but even without it,
-editing the draft has the same effect. This avoids a state where the
-draft and the finalized flag can silently disagree.
 
 **Schema:** same deny-by-default RLS + `security definer` RPC pattern as
 Phase 2 (`teams`/`team_members`) — `team_agreement_responses`,

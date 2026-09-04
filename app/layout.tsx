@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Wavelength",
   description:
-    "Wavelength: a wizard to build your personal user manual. Better trust, better collaboration, better relationships.",
+    "Wavelength: build your personal working manual and your team's shared working agreement. Better trust, better collaboration, better relationships.",
 };
 
 export default function RootLayout({
