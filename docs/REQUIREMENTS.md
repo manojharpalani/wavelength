@@ -20,7 +20,11 @@ guess how to collaborate with them.
    How You Work, Feedback & Support, Values & Expectations, Strengths &
    Growth, A Few More Things), navigable via a sidebar with progress
    indication. Answers persist in memory for the session (not saved to a
-   backend).
+   backend). About You includes an optional, self-reported Myers-Briggs
+   type field — free text, no in-app quiz (avoids MBTI licensing/IP
+   concerns and the scope of building a real typing instrument). Renders
+   as its own "Personality" section in the detailed manual when filled
+   in; omitted from the one-pager, hidden entirely when blank.
 3. **Your Manual (review step)** — renders the collected answers as a
    document, toggle-able between a **Detailed** view (full sections) and a
    **One-pager** view (quick facts + essentials only). Empty state shown if

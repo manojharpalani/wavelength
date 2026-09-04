@@ -34,6 +34,7 @@ const STEPS: StepDef[] = [
       { key: "experience", label: "Background", kind: "text", placeholder: "e.g. 8 years in product design, 3 leading a team" },
       { key: "knownFor", label: "What people can count on you for", kind: "textarea", placeholder: "e.g. Turning messy problems into clear plans, and following through." },
       { key: "careAbout", label: "What you care about in your work", kind: "textarea", placeholder: "e.g. Craft, honest feedback, and making the team look good." },
+      { key: "mbtiType", label: "Myers-Briggs type (optional)", kind: "text", placeholder: "e.g. INTJ — don't know it? skip this, or look it up at 16personalities.com" },
     ],
   },
   {
@@ -116,6 +117,10 @@ const REVIEW_GROUPS: { heading: string; rows: { key: string; label: string }[] }
       { key: "knownFor", label: "What people can count on me for" },
       { key: "careAbout", label: "What I care about" },
     ],
+  },
+  {
+    heading: "Personality",
+    rows: [{ key: "mbtiType", label: "Myers-Briggs type" }],
   },
   {
     heading: "How I Communicate",
