@@ -12,7 +12,7 @@
 -- see each other's manuals through this or any other path.
 
 create or replace function public.get_team_member_manual(p_team_id uuid, p_user_id uuid)
-returns table (values jsonb, updated_at timestamptz)
+returns table (manual_values jsonb, updated_at timestamptz)
 language plpgsql
 security definer
 set search_path = public
@@ -30,7 +30,7 @@ begin
   end if;
 
   return query
-    select pm.values, pm.updated_at
+    select pm.values as manual_values, pm.updated_at
     from personal_manuals pm
     where pm.user_id = p_user_id;
 end;

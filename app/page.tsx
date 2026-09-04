@@ -761,12 +761,12 @@ export default function Home() {
       return;
     }
     const { data, error } = await supabase.rpc("get_team_member_manual", { p_team_id: activeTeam.id, p_user_id: m.user_id });
-    const row = Array.isArray(data) && data.length > 0 ? (data[0] as { values: Values }) : null;
+    const row = Array.isArray(data) && data.length > 0 ? (data[0] as { manual_values: Values }) : null;
     if (error || !row) {
       console.error("Wavelength: loading teammate manual failed", error);
       setTeammateManualError("Couldn't load this manual right now — try again in a moment.");
     } else {
-      setTeammateManual({ email: m.email, values: row.values || {}, mode: "onepager" });
+      setTeammateManual({ email: m.email, values: row.manual_values || {}, mode: "onepager" });
     }
     setTeammateManualLoading(false);
   }
