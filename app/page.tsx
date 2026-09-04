@@ -599,9 +599,9 @@ export default function Home() {
     return (
       <>
         <aside className="sidebar">
-          <p className="sidebar-brand">
+          <div className="sidebar-brand">
             <LogoMark />Wavelength<AudioToggle />
-          </p>
+          </div>
           <p className="sidebar-tagline">A few honest details, so the people you work with don&apos;t have to guess.</p>
           <button type="button" className="nav-home-link" onClick={() => setView("home")}>← Back to home</button>
           {STEPS.map((s, i) => (
