@@ -3,7 +3,15 @@ html, body { margin: 0; }
 body {
   font-family: 'Work Sans', ui-sans-serif, system-ui, sans-serif;
   color: var(--ink);
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(560px circle at 8% 0%, color-mix(in oklch, #c2603f 16%, transparent), transparent 60%),
+    radial-gradient(620px circle at 100% 8%, color-mix(in oklch, #8f887c 20%, transparent), transparent 62%),
+    radial-gradient(680px circle at 45% 105%, color-mix(in oklch, #c2603f 10%, transparent), transparent 65%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='520' height='260' viewBox='0 0 520 260'%3E%3Cpath d='M0,70 C130,36 130,104 260,70 S390,104 520,70' fill='none' stroke='%23c2603f' stroke-width='1.3' opacity='0.13'/%3E%3Cpath d='M0,140 C130,174 130,106 260,140 S390,106 520,140' fill='none' stroke='%238f887c' stroke-width='1.1' opacity='0.11'/%3E%3Cpath d='M0,205 C130,183 130,227 260,205 S390,227 520,205' fill='none' stroke='%23c2603f' stroke-width='1' opacity='0.08'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-size: auto, auto, auto, 520px 260px;
+  background-attachment: fixed, fixed, fixed, fixed;
   --accent: #c2603f;
   --bg: oklch(97.3% 0.01 80);
   --surface: oklch(99% 0.004 80);
@@ -124,60 +132,32 @@ a:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
 .preview-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 4px; }
 .preview-modal .close-btn { font-size: 14px; flex-shrink: 0; }
 
-.home { flex: 1 1 auto; min-width: 0; overflow-y: auto; max-height: 100vh; padding: 40px 48px 88px; display: flex; flex-direction: column; align-items: center; }
-.home-nav { width: 100%; max-width: 980px; display: flex; align-items: center; margin-bottom: 64px; }
+.home { flex: 1 1 auto; min-width: 0; overflow-y: auto; max-height: 100vh; padding: 28px 40px 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.home-nav { width: 100%; max-width: 980px; display: flex; align-items: center; margin-bottom: 28px; }
 .home-brand { display: flex; align-items: center; gap: 10px; }
 .home-wordmark { font-family: 'Newsreader', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--ink); }
 
-.hero { width: 100%; max-width: 720px; text-align: center; display: flex; flex-direction: column; align-items: center; margin-bottom: 92px; }
-.hero-title { font-family: 'Newsreader', Georgia, serif; font-size: 46px; font-weight: 600; line-height: 1.12; margin: 0 0 18px; color: var(--ink); }
-.hero-subtitle { font-size: 17px; color: var(--muted); line-height: 1.65; max-width: 560px; margin: 0 0 32px; }
-.hero-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 4px; }
-.hero-time-note { font-size: 13px; color: var(--muted); }
-.hero-visual { width: 100%; display: flex; justify-content: center; margin-top: 28px; }
-.hero-visual-svg { width: 100%; max-width: 420px; height: auto; }
-.ring { fill: none; stroke-width: 1.4; transform-box: fill-box; transform-origin: center; }
-.ring-a { animation: pulseA 3.4s ease-in-out infinite; }
-.ring-b { animation: pulseB 3.4s ease-in-out infinite; animation-delay: 0.3s; }
-.ring-c { animation: pulseC 3.4s ease-in-out infinite; animation-delay: 0.6s; }
-@keyframes pulseA { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 0.22; transform: scale(1.06); } }
-@keyframes pulseB { 0%, 100% { opacity: 0.35; transform: scale(1); } 50% { opacity: 0.12; transform: scale(1.08); } }
-@keyframes pulseC { 0%, 100% { opacity: 0.18; transform: scale(1); } 50% { opacity: 0.04; transform: scale(1.1); } }
+.hero { width: 100%; max-width: 720px; text-align: center; display: flex; flex-direction: column; align-items: center; margin-bottom: 40px; }
+.hero-title { font-family: 'Newsreader', Georgia, serif; font-size: 40px; font-weight: 600; line-height: 1.15; margin: 0 0 14px; color: var(--ink); }
+.hero-subtitle { font-size: 16px; color: var(--muted); line-height: 1.6; max-width: 560px; margin: 0 0 24px; }
+.hero-actions { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 12px; }
 
-.vision-section { width: 100%; max-width: 760px; text-align: center; margin-bottom: 92px; }
-.vision-statement { font-family: 'Newsreader', Georgia, serif; font-size: 30px; font-weight: 600; line-height: 1.35; color: var(--ink); margin: 0 0 20px; }
-.vision-support { font-size: 15.5px; color: var(--muted); line-height: 1.7; max-width: 560px; margin: 0 auto; }
+.vision-section { width: 100%; max-width: 900px; text-align: center; }
 
-.home-section { width: 100%; max-width: 900px; margin-bottom: 80px; display: flex; flex-direction: column; align-items: center; text-align: center; }
-.section-eyebrow { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent); margin-bottom: 22px; }
-.section-body { font-size: 15px; color: var(--muted); max-width: 520px; margin: -10px 0 32px; line-height: 1.6; }
+.section-eyebrow { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--accent); margin-bottom: 20px; }
 
-.benefits-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; width: 100%; }
-.benefit-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px 24px; text-align: left; }
-.benefit-icon { width: 28px; height: 28px; margin-bottom: 16px; color: var(--accent); }
+.benefits-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; width: 100%; }
+.benefit-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 20px; text-align: left; }
+.benefit-icon { width: 24px; height: 24px; margin-bottom: 10px; color: var(--accent); }
 .benefit-icon svg { width: 100%; height: 100%; stroke: currentColor; fill: none; }
-.benefit-card h3 { font-family: 'Newsreader', Georgia, serif; font-size: 18px; margin: 0 0 8px; color: var(--ink); }
-.benefit-card p { font-size: 14px; color: var(--muted); line-height: 1.55; margin: 0; }
-
-.how-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; width: 100%; }
-.how-step { text-align: left; }
-.how-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: color-mix(in oklch, var(--accent) 14%, white); color: var(--accent); font-weight: 600; font-size: 13px; margin-bottom: 14px; }
-.how-step h3 { font-family: 'Newsreader', Georgia, serif; font-size: 17px; margin: 0 0 8px; color: var(--ink); }
-.how-step p { font-size: 14px; color: var(--muted); line-height: 1.55; margin: 0; }
-
-.samples-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; width: 100%; max-width: 780px; }
-.sample-card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px; text-align: left; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
-.sample-card h3 { font-family: 'Newsreader', Georgia, serif; font-size: 17px; margin: 0; color: var(--ink); }
-.sample-card p { font-size: 14px; color: var(--muted); line-height: 1.55; margin: 0 0 6px; }
-
-.home-footer { width: 100%; max-width: 640px; text-align: center; padding: 56px 0 24px; border-top: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 20px; }
-.footer-title { font-family: 'Newsreader', Georgia, serif; font-size: 26px; font-weight: 600; color: var(--ink); margin: 0; }
+.benefit-card h3 { font-family: 'Newsreader', Georgia, serif; font-size: 16px; margin: 0 0 6px; color: var(--ink); }
+.benefit-card p { font-size: 13.5px; color: var(--muted); line-height: 1.5; margin: 0; }
 
 @media (max-width: 760px) {
-  .benefits-grid, .how-grid, .samples-row { grid-template-columns: 1fr; }
-  .hero-title { font-size: 32px; }
-  .vision-statement { font-size: 24px; }
-  .home { padding: 32px 24px 64px; }
+  .benefits-grid { grid-template-columns: 1fr; }
+  .hero-title { font-size: 30px; }
+  .hero-actions { flex-direction: column; }
+  .home { padding: 28px 20px; overflow-y: auto; justify-content: flex-start; }
   .sidebar { display: none; }
 }
 

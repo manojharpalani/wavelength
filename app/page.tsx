@@ -545,95 +545,39 @@ export default function Home() {
         </div>
 
         <section className="hero">
-          <span className="kicker">Because nobody comes with instructions</span>
-          <h1 className="hero-title">Get on the same wavelength, faster.</h1>
+          <h1 className="hero-title">
+            A wizard to build your
+            <br />
+            <span style={{ color: "var(--accent)" }}>personal user manual</span>.
+          </h1>
           <p className="hero-subtitle">
-            We&apos;re all a little different, and that&apos;s the whole point. A few honest answers turn into something people can actually
-            use — how you think, what helps you thrive, what throws you off. Share it, and the guesswork just melts away.
+            Takes 5 mins and a few honest answers.
           </p>
           <div className="hero-actions">
             <button type="button" className="btn btn-primary" onClick={() => setView("wizard")}>{ctaLabel}</button>
-            <span className="hero-time-note">Five minutes, no small talk required</span>
-          </div>
-          <div className="hero-visual">
-            <svg className="hero-visual-svg" viewBox="0 0 480 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <circle cx="120" cy="110" r="10" style={{ fill: "var(--accent)" }} />
-              <circle cx="120" cy="110" r="34" className="ring ring-a" style={{ stroke: "var(--accent)" }} />
-              <circle cx="120" cy="110" r="58" className="ring ring-b" style={{ stroke: "var(--accent)" }} />
-              <circle cx="120" cy="110" r="82" className="ring ring-c" style={{ stroke: "var(--accent)" }} />
-              <circle cx="360" cy="110" r="10" fill="#8f887c" />
-              <circle cx="360" cy="110" r="34" className="ring ring-a" stroke="#8f887c" />
-              <circle cx="360" cy="110" r="58" className="ring ring-b" stroke="#8f887c" />
-              <circle cx="360" cy="110" r="82" className="ring ring-c" stroke="#8f887c" />
-              <circle cx="240" cy="110" r="4.5" style={{ fill: "var(--accent)" }} />
-              <circle cx="240" cy="82" r="3" style={{ fill: "var(--accent)" }} opacity="0.6" />
-              <circle cx="240" cy="138" r="3" style={{ fill: "var(--accent)" }} opacity="0.6" />
-            </svg>
+            <button type="button" className="btn btn-secondary" onClick={() => setPreviewOpen("onepager")}>View sample</button>
           </div>
         </section>
 
         <section className="vision-section">
-          <span className="section-eyebrow">Why this, why now</span>
-          <p className="vision-statement">
-            AI can write your emails. It can&apos;t make you <span style={{ color: "var(--accent)" }}>understood</span>.
-          </p>
-          <p className="vision-support">
-            The more we lean on machines to talk for us, the easier it is to forget how to talk to each other. Wavelength is a small,
-            human counter-move — a few honest words, in your own voice, so the people around you don&apos;t need an algorithm to know how
-            to work with you.
-          </p>
-        </section>
-
-        <section className="home-section">
-          <span className="section-eyebrow">The stuff nobody says out loud</span>
+          <span className="section-eyebrow">Why it matters</span>
           <div className="benefits-grid">
             <div className="benefit-card">
               <div className="benefit-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" strokeWidth="1.6" /><path d="M8 12.3l2.6 2.6L16 9" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
-              <h3>Less friction</h3>
-              <p>No more re-explaining yourself to every new teammate like it&apos;s your first day, forever.</p>
+              <h3>Better Trust</h3>
+              <p>Grows faster when there&apos;s nothing to guess.</p>
             </div>
             <div className="benefit-card">
               <div className="benefit-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6.5" strokeWidth="1.6" /><circle cx="15" cy="12" r="6.5" strokeWidth="1.6" /></svg></div>
-              <h3>Faster trust</h3>
-              <p>New teammates (and empathetic managers) actually get you in minutes, not months.</p>
+              <h3>Stronger Collaboration</h3>
+              <p>Less friction, better & faster synergy.</p>
             </div>
             <div className="benefit-card">
               <div className="benefit-icon"><svg viewBox="0 0 24 24"><path d="M5.5 15.5a9 9 0 0 1 13 0" strokeWidth="1.6" strokeLinecap="round" /><path d="M8.3 18a5 5 0 0 1 7.4 0" strokeWidth="1.6" strokeLinecap="round" /><circle cx="12" cy="20" r="1.1" stroke="none" fill="currentColor" /></svg></div>
-              <h3>Fewer crossed wires</h3>
-              <p>The quiet little misreads that build into real friction? Gone before they start.</p>
+              <h3>Deeper Relationships</h3>
+              <p>Built on understanding, not small talk.</p>
             </div>
           </div>
-        </section>
-
-        <section className="home-section">
-          <span className="section-eyebrow">How it works</span>
-          <div className="how-grid">
-            <div className="how-step"><span className="how-number">1</span><h3>Answer like you mean it</h3><p>Seven short sections. No wrong answers — just the true ones.</p></div>
-            <div className="how-step"><span className="how-number">2</span><h3>Watch yourself take shape</h3><p>It comes together right in front of you — the quick version and the whole story, side by side.</p></div>
-            <div className="how-step"><span className="how-number">3</span><h3>Let it do the talking</h3><p>Drop it in a doc, print it, or just send the link — however it lands, it starts working for you.</p></div>
-          </div>
-        </section>
-
-        <section className="home-section">
-          <span className="section-eyebrow">Not sure what to say yet?</span>
-          <p className="section-body">That&apos;s normal — most people freeze up on a blank page. Here&apos;s what it looks like once someone else has already opened up.</p>
-          <div className="samples-row">
-            <div className="sample-card">
-              <h3>One-pager</h3>
-              <p>The quick read — the handful of things someone should know before they even say hello.</p>
-              <button type="button" className="btn btn-secondary" onClick={() => setPreviewOpen("onepager")}>Preview the one-pager</button>
-            </div>
-            <div className="sample-card">
-              <h3>Detailed version</h3>
-              <p>The whole story — for empathetic colleagues, the closest collaborators, or anyone who wants to really get you.</p>
-              <button type="button" className="btn btn-secondary" onClick={() => setPreviewOpen("detailed")}>Preview the detailed version</button>
-            </div>
-          </div>
-        </section>
-
-        <section className="home-footer">
-          <h2 className="footer-title">Your people are waiting to actually get you.</h2>
-          <button type="button" className="btn btn-primary" onClick={() => setView("wizard")}>{ctaLabel}</button>
         </section>
       </div>
     );
@@ -718,17 +662,20 @@ export default function Home() {
 
   function renderModal() {
     if (!previewOpen) return null;
-    const label = previewOpen === "onepager" ? "A sample: the quick read" : "A sample: the whole story";
     const title = docTitleFor(SAMPLE_VALUES);
     return (
       <div className="preview-backdrop" onClick={() => setPreviewOpen(null)}>
         <div className="preview-modal" onClick={(e) => e.stopPropagation()}>
           <div className="preview-modal-head">
-            <span className="kicker">{label}</span>
+            <span className="kicker">Sample manual</span>
             <button type="button" className="btn btn-ghost close-btn" onClick={() => setPreviewOpen(null)}>Close</button>
           </div>
           <h2 className="step-title" style={{ fontSize: 26 }}>{title}</h2>
-          <p className="step-subtitle" style={{ marginBottom: 24 }}>Just a glimpse of what&apos;s possible — your own words will live here soon enough.</p>
+          <p className="step-subtitle" style={{ marginBottom: 20 }}>Just a glimpse of what&apos;s possible — your own words will live here soon enough.</p>
+          <div className="pill-group" style={{ marginBottom: 26 }}>
+            <button type="button" className={"pill" + (previewOpen === "onepager" ? " selected" : "")} onClick={() => setPreviewOpen("onepager")}>One-pager</button>
+            <button type="button" className={"pill" + (previewOpen === "detailed" ? " selected" : "")} onClick={() => setPreviewOpen("detailed")}>Detailed</button>
+          </div>
           <ManualBody values={SAMPLE_VALUES} mode={previewOpen} />
         </div>
       </div>
