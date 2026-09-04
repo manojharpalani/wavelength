@@ -80,6 +80,23 @@ one client component:
   `/?join=CODE` — the actual join UI lives in `page.tsx` alongside
   everything else, there's no separate router. Run
   `supabase/schema_phase2.sql` once, after `schema.sql`.
+- **`supabase/schema_phase3.sql`, `AGREEMENT_QUESTIONS` in `page.tsx`,
+  `/api/assist`'s `team-synthesis` mode** — the Team Working Agreement
+  (Phase 3). Same RLS pattern as Phase 2:
+  `team_agreement_responses`/`team_agreement_drafts`/`team_agreements`
+  have no row policies, everything goes through `security definer` RPCs
+  that check `team_members` first. The question set (label + placeholder
+  per question) lives in `AGREEMENT_QUESTIONS` in `page.tsx` —
+  `question_key` in the schema is free text, not a foreign key, so
+  editing a question's wording there needs no migration. The "Shared
+  draft" tab's "Help me write this"-style button calls `/api/assist` with
+  `{ mode: "team-synthesis", question, answers, currentDraft }`, which is
+  a second branch in the same route file as the personal-manual assist
+  feature (same `ANTHROPIC_API_KEY` gate, same graceful degradation). See
+  `docs/DECISIONS.md` (2026-09-04, "Team Working Agreement (Phase 3)")
+  for the finalize/reopen and edit-permission reasoning. Run
+  `supabase/schema_phase3.sql` once, after `schema.sql` and
+  `schema_phase2.sql`.
 
 ### Vercel project quirk
 

@@ -94,6 +94,49 @@ it and who's completed their personal manual. The Team Working Agreement
 content itself (the actual "how should we work" questions and shared
 draft) is Phase 3, not touched here.
 
+## 2026-09-04 — Team Working Agreement (Phase 3): AI synthesis is a starting draft, not a decision
+
+**Decision:** Any team member can ask Claude to turn everyone's individual
+answers to a question into one proposed team-wide answer (`/api/assist`'s
+new `team-synthesis` mode, reusing the same `ANTHROPIC_API_KEY` +
+graceful-degradation setup as the personal manual's "Help me write this").
+The result lands in the shared draft textarea, editable like anything
+else — it's a starting point, not a final answer, and any member can
+rewrite it by hand instead. There's no "auto-finalize" path; finalizing is
+always a deliberate human action (see below).
+
+**Why:** Synthesizing 3-8 short free-text answers into one coherent "we"
+statement is exactly the kind of first-draft-from-messy-input task the
+personal manual's assist feature already does well, and it saves the team
+from someone having to manually read and reconcile everyone's answers
+question by question. Making it optional (a button per question, not
+automatic) and always-editable keeps the team in control of what actually
+ends up in their agreement — the model doesn't get a vote, it drafts.
+
+**Any member can edit and finalize, not just the team owner:** matches the
+collaborative framing of the whole feature — a working agreement that only
+one person can shape isn't really the team's agreement. The tradeoff is
+lower guardrails (anyone can overwrite anyone else's draft edit), accepted
+for v1 given team sizes are expected to be small; the RPCs still gate
+everything on team membership, so it's a trust-your-teammates model, not
+an open one.
+
+**Finalizing is reversible by editing, not a separate "reopen" workflow:**
+`save_agreement_draft` clears `finalized_at` on any draft edit, so
+"finalized" just means "nobody's touched it since it was marked done" —
+there's also an explicit "Reopen for edits" button, but even without it,
+editing the draft has the same effect. This avoids a state where the
+draft and the finalized flag can silently disagree.
+
+**Schema:** same deny-by-default RLS + `security definer` RPC pattern as
+Phase 2 (`teams`/`team_members`) — `team_agreement_responses`,
+`team_agreement_drafts`, and `team_agreements` all have RLS enabled with
+no row policies; every read/write is a function that checks
+`team_members` membership first. See `supabase/schema_phase3.sql`.
+`question_key` is free text, not a foreign key, so the question set
+(defined in `app/page.tsx`'s `AGREEMENT_QUESTIONS`) can be edited without
+a migration.
+
 ## 2026-08-24 — Direct Anthropic API key, not Vercel AI Gateway
 
 **Decision:** AI assist calls Anthropic directly via `@ai-sdk/anthropic`

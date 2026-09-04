@@ -108,9 +108,17 @@ Phased so each step ships independent value:
   their personal manual. `teams`/`team_members` use deny-by-default RLS —
   all access goes through `security definer` RPCs (see
   `supabase/schema_phase2.sql` and docs/DECISIONS.md).
-- **Phase 3 — planned.** Collaborative Team Working Agreement: each member
-  answers a shared set of "how should we work" questions (communication
-  norms, meeting rhythm, decision-making, engineering norms like PR review
-  SLAs and on-call expectations, core hours, conflict/feedback norms);
-  answers aggregate into a draft the team reviews and finalizes together,
-  exported/printed with the same polish as the personal manual today.
+- **Phase 3 — done.** Collaborative Team Working Agreement: 8 shared
+  "how should we work" questions (communication, meeting rhythm,
+  decision-making, PR review standard, on-call expectations, core hours,
+  feedback/conflict, definition of done). Each member answers privately
+  first ("Your answers"), can see everyone's answers side by side
+  ("Everyone's answers"), then any member can shape a shared draft
+  ("Shared draft") — write it by hand, or have Claude synthesize a
+  proposed team-wide answer from what everyone said. Any member can mark
+  the agreement finalized; editing the draft afterward reopens it
+  automatically. A finalized agreement exports/prints with the same
+  letterhead styling as the personal manual. `team_agreement_responses`,
+  `team_agreement_drafts`, and `team_agreements` follow the same
+  deny-by-default RLS + `security definer` RPC pattern as Phase 2 — see
+  `supabase/schema_phase3.sql` and docs/DECISIONS.md.

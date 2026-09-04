@@ -442,8 +442,26 @@ function ReviewSection({ heading, rows }: { heading: string; rows: { label: stri
 type TeamSummary = { id: string; name: string; invite_code: string; joined_at: string; is_owner: boolean };
 type RosterRow = { user_id: string; email: string; joined_at: string; has_manual: boolean };
 
+// ---------- team working agreement (Phase 3) ----------
+
+type AgreementQuestion = { key: string; label: string; placeholder: string };
+
+const AGREEMENT_QUESTIONS: AgreementQuestion[] = [
+  { key: "communication", label: "How should we communicate day-to-day?", placeholder: "e.g. Slack for anything that can wait an hour; call or huddle for anything urgent." },
+  { key: "meetingRhythm", label: "What's our meeting rhythm?", placeholder: "e.g. 15-min standup daily, 1:1s every other week, no-meeting Fridays." },
+  { key: "decisionMaking", label: "How do we make decisions as a team?", placeholder: "e.g. Whoever's closest to the work decides; loop in the team for anything hard to reverse." },
+  { key: "prReview", label: "What's our standard for reviewing code?", placeholder: "e.g. Same-day review turnaround; small PRs preferred; one approval to merge." },
+  { key: "onCall", label: "What do we expect from each other during on-call or urgent issues?", placeholder: "e.g. Acknowledge a page within 15 minutes; escalate if you're stuck for more than 30." },
+  { key: "coreHours", label: "What are our core hours and availability norms?", placeholder: "e.g. Overlap 10am-2pm ET; otherwise work when it suits your timezone and focus." },
+  { key: "feedbackConflict", label: "How do we want to give feedback and handle disagreement?", placeholder: "e.g. Say it directly and soon, in private first; disagree openly in design reviews, commit once we decide." },
+  { key: "definitionOfDone", label: "What does \"done\" mean for our team?", placeholder: "e.g. Tests pass, docs updated, reviewed, and deployed — not just merged." },
+];
+
+type AgreementResponseRow = { question_key: string; user_id: string; email: string; answer: string; updated_at: string };
+type AgreementDraftRow = { question_key: string; draft_text: string; updated_at: string; updated_by_email: string | null };
+
 export default function Home() {
-  const [view, setView] = useState<"home" | "wizard" | "teams" | "team">("home");
+  const [view, setView] = useState<"home" | "wizard" | "teams" | "team" | "agreement">("home");
   const [step, setStep] = useState(0);
   const [values, setValues] = useState<Values>({});
   const [exportView, setExportView] = useState<"detailed" | "onepager">("detailed");
@@ -469,6 +487,16 @@ export default function Home() {
   const [joinState, setJoinState] = useState<{ loading: boolean; error?: string }>({ loading: false });
   const [pendingInvite, setPendingInvite] = useState<{ code: string; teamName: string | null; checked: boolean } | null>(null);
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
+
+  const [agreementTab, setAgreementTab] = useState<"respond" | "compare" | "draft">("respond");
+  const [agreementLoading, setAgreementLoading] = useState(false);
+  const [myResponses, setMyResponses] = useState<Record<string, string>>({});
+  const [agreementResponses, setAgreementResponses] = useState<AgreementResponseRow[]>([]);
+  const [agreementDraft, setAgreementDraft] = useState<Record<string, string>>({});
+  const [agreementStatus, setAgreementStatus] = useState<{ finalizedAt: string | null; finalizedByEmail: string | null }>({ finalizedAt: null, finalizedByEmail: null });
+  const [synthesis, setSynthesis] = useState<Record<string, AssistState>>({});
+  const responseSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const draftSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const hasStarted = step > 0 || Object.values(values).some(isFilled);
   const ctaLabel = hasStarted ? "Pick up where you left off" : "Find your wavelength";
@@ -596,6 +624,10 @@ export default function Home() {
     setMyTeams([]);
     setTeamsLoaded(false);
     setActiveTeam(null);
+    setMyResponses({});
+    setAgreementResponses([]);
+    setAgreementDraft({});
+    setAgreementStatus({ finalizedAt: null, finalizedByEmail: null });
   }
 
   async function loadMyTeams() {
@@ -681,6 +713,121 @@ export default function Home() {
     } catch {
       // Clipboard API can be unavailable (permissions, non-secure context)
       // — the invite URL is still shown in a selectable input either way.
+    }
+  }
+
+  async function openAgreement(team: TeamSummary) {
+    setActiveTeam(team);
+    setView("agreement");
+    setAgreementTab("respond");
+    await loadAgreementData(team.id);
+  }
+
+  async function loadAgreementData(teamId: string) {
+    setAgreementLoading(true);
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setAgreementLoading(false);
+      return;
+    }
+    const [mine, all, draft, status] = await Promise.all([
+      supabase.rpc("get_my_agreement_responses", { p_team_id: teamId }),
+      supabase.rpc("get_team_agreement_responses", { p_team_id: teamId }),
+      supabase.rpc("get_agreement_draft", { p_team_id: teamId }),
+      supabase.rpc("get_agreement_status", { p_team_id: teamId }),
+    ]);
+
+    const myMap: Record<string, string> = {};
+    ((mine.data as { question_key: string; answer: string }[] | null) || []).forEach((r) => {
+      myMap[r.question_key] = r.answer;
+    });
+    setMyResponses(myMap);
+
+    setAgreementResponses(((all.data as AgreementResponseRow[] | null) || []).filter((r) => r.answer && r.answer.trim()));
+
+    const draftMap: Record<string, string> = {};
+    ((draft.data as AgreementDraftRow[] | null) || []).forEach((r) => {
+      draftMap[r.question_key] = r.draft_text;
+    });
+    setAgreementDraft(draftMap);
+
+    const statusRow = Array.isArray(status.data) && status.data.length > 0 ? (status.data[0] as { finalized_at: string | null; finalized_by_email: string | null }) : null;
+    setAgreementStatus({ finalizedAt: statusRow?.finalized_at ?? null, finalizedByEmail: statusRow?.finalized_by_email ?? null });
+
+    setAgreementLoading(false);
+  }
+
+  function setMyResponse(key: string, val: string) {
+    setMyResponses((r) => ({ ...r, [key]: val }));
+    if (!activeTeam) return;
+    const teamId = activeTeam.id;
+    clearTimeout(responseSaveTimers.current[key]);
+    responseSaveTimers.current[key] = setTimeout(() => {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) return;
+      supabase.rpc("submit_agreement_response", { p_team_id: teamId, p_question_key: key, p_answer: val }).then(({ error }) => {
+        if (!error) {
+          // Keep the "everyone's answers" tab in sync with what we just saved.
+          setAgreementResponses((rows) => {
+            const email = authUser?.email || "";
+            const others = rows.filter((r) => !(r.question_key === key && r.user_id === authUser?.id));
+            if (!val.trim()) return others;
+            return [...others, { question_key: key, user_id: authUser?.id || "", email, answer: val, updated_at: new Date().toISOString() }];
+          });
+        }
+      });
+    }, 900);
+  }
+
+  function setAgreementDraftText(key: string, val: string) {
+    setAgreementDraft((d) => ({ ...d, [key]: val }));
+    setAgreementStatus({ finalizedAt: null, finalizedByEmail: null });
+    if (!activeTeam) return;
+    const teamId = activeTeam.id;
+    clearTimeout(draftSaveTimers.current[key]);
+    draftSaveTimers.current[key] = setTimeout(() => {
+      const supabase = getSupabaseBrowserClient();
+      if (!supabase) return;
+      supabase.rpc("save_agreement_draft", { p_team_id: teamId, p_question_key: key, p_draft_text: val });
+    }, 900);
+  }
+
+  async function runAgreementSynthesis(q: AgreementQuestion) {
+    const answers = agreementResponses.filter((r) => r.question_key === q.key && r.answer.trim());
+    if (answers.length === 0) {
+      setSynthesis((s) => ({ ...s, [q.key]: { loading: false, error: "No answers yet to draft from — wait for teammates to answer, or write it yourself." } }));
+      return;
+    }
+    setSynthesis((s) => ({ ...s, [q.key]: { loading: true } }));
+    try {
+      const res = await fetch("/api/assist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "team-synthesis",
+          question: q.label,
+          answers: answers.map((a) => ({ email: a.email, answer: a.answer })),
+          currentDraft: agreementDraft[q.key],
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      setAgreementDraftText(q.key, data.text);
+      setSynthesis((s) => ({ ...s, [q.key]: { loading: false } }));
+    } catch (err) {
+      setSynthesis((s) => ({ ...s, [q.key]: { loading: false, error: err instanceof Error ? err.message : "Something went wrong." } }));
+    }
+  }
+
+  async function setFinalized(finalized: boolean) {
+    if (!activeTeam) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    const { error } = await supabase.rpc("set_agreement_finalized", { p_team_id: activeTeam.id, p_finalized: finalized });
+    if (!error) {
+      setAgreementStatus(
+        finalized ? { finalizedAt: new Date().toISOString(), finalizedByEmail: authUser?.email ?? null } : { finalizedAt: null, finalizedByEmail: null }
+      );
     }
   }
 
@@ -1085,10 +1232,172 @@ export default function Home() {
             </div>
           )}
 
-          <p className="step-subtitle" style={{ marginTop: 30, marginBottom: 0 }}>
-            A shared team working agreement is coming soon — for now, this is just the roster.
-          </p>
+          <div className="agreement-cta">
+            <div>
+              <h3 className="review-heading" style={{ marginBottom: 6 }}>Team Working Agreement</h3>
+              <p className="step-subtitle" style={{ marginBottom: 0 }}>
+                Everyone answers a shared set of "how we work" questions, then shapes the answers into one agreement together.
+              </p>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => openAgreement(activeTeam)}>Open agreement</button>
+          </div>
         </section>
+      </div>
+    );
+  }
+
+  function renderAgreementRespond() {
+    return (
+      <div className="agreement-questions">
+        {AGREEMENT_QUESTIONS.map((q) => (
+          <div className="field" key={q.key}>
+            <label htmlFor={`aq-${q.key}`}>{q.label}</label>
+            <textarea
+              id={`aq-${q.key}`}
+              value={myResponses[q.key] || ""}
+              placeholder={q.placeholder}
+              onChange={(e) => setMyResponse(q.key, e.target.value)}
+            />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function renderAgreementCompare() {
+    return (
+      <div className="agreement-compare">
+        {AGREEMENT_QUESTIONS.map((q) => {
+          const rows = agreementResponses.filter((r) => r.question_key === q.key);
+          return (
+            <div className="review-section" key={q.key}>
+              <h3 className="review-heading">{q.label}</h3>
+              <span className="roster-badge" style={{ display: "inline-block", marginBottom: 12 }}>
+                {rows.length} of {roster.length || 1} answered
+              </span>
+              {rows.length === 0 ? (
+                <p className="empty-state" style={{ margin: "4px 0 0" }}>No one&apos;s answered this yet.</p>
+              ) : (
+                <div className="agreement-answer-list">
+                  {rows.map((r) => (
+                    <div className="agreement-answer-row" key={r.user_id}>
+                      <span className="roster-email">{r.email}</span>
+                      <p className="review-value" style={{ margin: "4px 0 0" }}>{r.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderAgreementDraft() {
+    const finalized = Boolean(agreementStatus.finalizedAt);
+    return (
+      <div className="agreement-draft">
+        {AGREEMENT_QUESTIONS.map((q) => {
+          const state = synthesis[q.key];
+          const answerCount = agreementResponses.filter((r) => r.question_key === q.key).length;
+          return (
+            <div className="field" key={q.key}>
+              <div className="field-label-row">
+                <label htmlFor={`ad-${q.key}`}>{q.label}</label>
+                <AssistButton state={state} onClick={() => runAgreementSynthesis(q)} />
+              </div>
+              <textarea
+                id={`ad-${q.key}`}
+                value={agreementDraft[q.key] || ""}
+                placeholder={answerCount > 0 ? "✨ Draft this from everyone's answers, or write it yourself…" : "Write the team's shared answer here…"}
+                onChange={(e) => setAgreementDraftText(q.key, e.target.value)}
+              />
+              {state?.error && <p className="assist-error">{state.error}</p>}
+            </div>
+          );
+        })}
+
+        <div className="agreement-finalize">
+          {finalized ? (
+            <>
+              <p className="step-subtitle" style={{ marginBottom: 0 }}>
+                Finalized {new Date(agreementStatus.finalizedAt as string).toLocaleDateString()}
+                {agreementStatus.finalizedByEmail ? ` by ${agreementStatus.finalizedByEmail}` : ""}.
+              </p>
+              <div className="agreement-finalize-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => window.print()}>Print / Save as PDF</button>
+                <button type="button" className="btn btn-ghost" onClick={() => setFinalized(false)}>Reopen for edits</button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="step-subtitle" style={{ marginBottom: 0 }}>
+                Editing the draft reopens it if it was already finalized — mark it finalized once the team's happy with it.
+              </p>
+              <button type="button" className="btn btn-primary" onClick={() => setFinalized(true)}>Mark as finalized</button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function renderAgreementPrintView() {
+    if (!activeTeam) return null;
+    const rows = AGREEMENT_QUESTIONS.map((q) => ({ label: q.label, value: agreementDraft[q.key] || "" })).filter((r) => r.value.trim());
+    return (
+      <div className="agreement-print-view">
+        <div className="print-letterhead">
+          <div className="print-letterhead-brand"><LogoMark />Wavelength</div>
+          <div className="print-letterhead-meta">Team Working Agreement &middot; {printDateString()}</div>
+        </div>
+        <h1 className="step-title" style={{ marginTop: 8 }}>{activeTeam.name}</h1>
+        <ReviewSection heading="How We Work" rows={rows} />
+        <div className="print-footer">Prepared with Wavelength</div>
+      </div>
+    );
+  }
+
+  function renderAgreement() {
+    if (!activeTeam) return renderTeams();
+    return (
+      <div className="home agreement-page">
+        <div className="home-nav">
+          <div className="home-brand">
+            <LogoMark />
+            <span className="home-wordmark">Wavelength</span>
+            <AudioToggle />
+          </div>
+          {renderAuthNav()}
+        </div>
+
+        <section className="teams-hub">
+          <button type="button" className="nav-home-link" onClick={() => setView("team")}>← {activeTeam.name}</button>
+          <h1 className="step-title" style={{ marginTop: 16, marginBottom: 8 }}>Team Working Agreement</h1>
+          <p className="step-subtitle" style={{ marginBottom: 20 }}>
+            {agreementStatus.finalizedAt
+              ? `Finalized ${new Date(agreementStatus.finalizedAt).toLocaleDateString()}${agreementStatus.finalizedByEmail ? ` by ${agreementStatus.finalizedByEmail}` : ""}.`
+              : "Answer honestly, see how the team compares, then shape it into one shared agreement."}
+          </p>
+
+          <div className="pill-group" style={{ marginBottom: 28 }}>
+            <button type="button" className={"pill" + (agreementTab === "respond" ? " selected" : "")} onClick={() => setAgreementTab("respond")}>Your answers</button>
+            <button type="button" className={"pill" + (agreementTab === "compare" ? " selected" : "")} onClick={() => setAgreementTab("compare")}>Everyone&apos;s answers</button>
+            <button type="button" className={"pill" + (agreementTab === "draft" ? " selected" : "")} onClick={() => setAgreementTab("draft")}>Shared draft</button>
+          </div>
+
+          {agreementLoading ? (
+            <p className="empty-state">Loading…</p>
+          ) : agreementTab === "respond" ? (
+            renderAgreementRespond()
+          ) : agreementTab === "compare" ? (
+            renderAgreementCompare()
+          ) : (
+            renderAgreementDraft()
+          )}
+        </section>
+        {renderAgreementPrintView()}
       </div>
     );
   }
@@ -1191,7 +1500,9 @@ export default function Home() {
         ? renderWizard()
         : view === "teams"
         ? renderTeams()
-        : renderTeamDetail()}
+        : view === "team"
+        ? renderTeamDetail()
+        : renderAgreement()}
       {renderModal()}
       {renderAuthModal()}
     </div>
