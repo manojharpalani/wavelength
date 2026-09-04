@@ -133,7 +133,13 @@ a:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
 .preview-modal .close-btn { font-size: 14px; flex-shrink: 0; }
 
 .home { flex: 1 1 auto; min-width: 0; overflow-y: auto; max-height: 100vh; padding: 28px 40px 32px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.home-nav { width: 100%; max-width: 980px; display: flex; align-items: center; margin-bottom: 28px; }
+.home-nav { width: 100%; max-width: 980px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 28px; }
+
+.auth-nav { display: flex; align-items: center; gap: 10px; }
+.auth-nav-email { font-size: 12.5px; color: var(--muted); }
+.auth-nav-link { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; padding: 4px 0; }
+.auth-nav-link:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
+.auth-modal { max-width: 440px; }
 .home-brand { display: flex; align-items: center; gap: 10px; }
 .home-wordmark { font-family: 'Newsreader', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--ink); }
 

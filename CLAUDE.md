@@ -57,7 +57,20 @@ one client component:
 - **Audio widget** (`AudioToggle` in `page.tsx`) — loads the YouTube iframe
   API imperatively (script tag + `window.onYouTubeIframeAPIReady`) and
   plays a hidden, off-screen video for background audio only. The video ID
-  is hardcoded (`7jfMnh9c_d4`); swap it there to change the track.
+  is hardcoded (`fIgfO9gD5GY`); swap it there to change the track.
+- **`lib/supabase/{client,server,config}.ts`, `middleware.ts`,
+  `app/auth/callback/route.ts`** — optional accounts + persistence.
+  `config.ts`'s `isSupabaseConfigured()` gates everything: with
+  `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` unset, the
+  browser/server clients return `null` and every call site (in `page.tsx`,
+  the middleware, the callback route) no-ops instead of throwing — the app
+  must keep working exactly as before when these are unset. `client.ts` is
+  the browser client (magic-link sign-in, session state, autosave);
+  `server.ts` is for Route Handlers; `middleware.ts` refreshes the auth
+  cookie on every request; `app/auth/callback/route.ts` exchanges the
+  magic-link code for a session. See `docs/DECISIONS.md` (2026-09-04) for
+  the reasoning and `supabase/schema.sql` for the DB schema + RLS
+  policies — run that file in the Supabase SQL Editor once per project.
 
 ### Vercel project quirk
 

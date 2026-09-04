@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 // ---------- content model (ported from the static prototype) ----------
 
@@ -444,8 +447,96 @@ export default function Home() {
   const [previewOpen, setPreviewOpen] = useState<"onepager" | "detailed" | null>(null);
   const [assist, setAssist] = useState<Record<string, AssistState>>({});
 
+  const supabaseEnabled = isSupabaseConfigured();
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [manualLoaded, setManualLoaded] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authState, setAuthState] = useState<{ sending: boolean; sent: boolean; error?: string }>({ sending: false, sent: false });
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const hasStarted = step > 0 || Object.values(values).some(isFilled);
   const ctaLabel = hasStarted ? "Pick up where you left off" : "Find your wavelength";
+
+  // Watch auth state (no-ops entirely when Supabase isn't configured).
+  useEffect(() => {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthUser(session?.user ?? null);
+      if (!session?.user) setManualLoaded(false);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // On sign-in, pull the saved manual — but only if there's nothing typed
+  // locally yet, so we never clobber an in-progress anonymous draft.
+  useEffect(() => {
+    if (!authUser) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    let cancelled = false;
+    supabase
+      .from("personal_manuals")
+      .select("values")
+      .eq("user_id", authUser.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const saved = (data?.values as Values) || {};
+        setValues((current) => (Object.values(current).some(isFilled) ? current : saved));
+        setManualLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser]);
+
+  // Debounced autosave once signed in and the initial load has settled.
+  useEffect(() => {
+    if (!authUser || !manualLoaded) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      supabase
+        .from("personal_manuals")
+        .upsert({ user_id: authUser.id, values, updated_at: new Date().toISOString() })
+        .then(({ error }) => {
+          if (error) console.error("Wavelength: autosave failed", error);
+        });
+    }, 900);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values, authUser, manualLoaded]);
+
+  async function sendMagicLink() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    const email = authEmail.trim();
+    if (!email) {
+      setAuthState({ sending: false, sent: false, error: "Enter your email first." });
+      return;
+    }
+    setAuthState({ sending: true, sent: false });
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) setAuthState({ sending: false, sent: false, error: error.message });
+    else setAuthState({ sending: false, sent: true });
+  }
+
+  async function signOut() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setAuthUser(null);
+    setManualLoaded(false);
+  }
 
   function setField(key: string, val: string) {
     setValues((v) => ({ ...v, [key]: val }));
@@ -547,6 +638,7 @@ export default function Home() {
             <span className="home-wordmark">Wavelength</span>
             <AudioToggle />
           </div>
+          {renderAuthNav()}
         </div>
 
         <section className="hero">
@@ -608,6 +700,7 @@ export default function Home() {
             <LogoMark />Wavelength<AudioToggle />
           </div>
           <p className="sidebar-tagline">A few honest details, so the people you work with don&apos;t have to guess.</p>
+          {renderAuthNav()}
           <button type="button" className="nav-home-link" onClick={() => setView("home")}>← Back to home</button>
           {STEPS.map((s, i) => (
             <button
@@ -687,10 +780,78 @@ export default function Home() {
     );
   }
 
+  function renderAuthNav() {
+    if (!supabaseEnabled) return null;
+    if (authUser) {
+      return (
+        <div className="auth-nav">
+          <span className="auth-nav-email">{authUser.email}</span>
+          <button type="button" className="auth-nav-link" onClick={signOut}>Sign out</button>
+        </div>
+      );
+    }
+    return (
+      <div className="auth-nav">
+        <button
+          type="button"
+          className="auth-nav-link"
+          onClick={() => {
+            setAuthState({ sending: false, sent: false });
+            setAuthModalOpen(true);
+          }}
+        >
+          Sign in to save your progress
+        </button>
+      </div>
+    );
+  }
+
+  function renderAuthModal() {
+    if (!authModalOpen) return null;
+    return (
+      <div className="preview-backdrop" onClick={() => setAuthModalOpen(false)}>
+        <div className="preview-modal auth-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="preview-modal-head">
+            <span className="kicker">Save your progress</span>
+            <button type="button" className="btn btn-ghost close-btn" onClick={() => setAuthModalOpen(false)}>Close</button>
+          </div>
+          <h2 className="step-title" style={{ fontSize: 22 }}>Sign in with email</h2>
+          {authState.sent ? (
+            <p className="step-subtitle" style={{ marginBottom: 0 }}>
+              Check <strong>{authEmail}</strong> for a link to sign in — no password needed.
+            </p>
+          ) : (
+            <>
+              <p className="step-subtitle" style={{ marginBottom: 22 }}>
+                We&apos;ll email you a link — no password to remember. Your manual then saves automatically as you go.
+              </p>
+              <div className="field" style={{ marginBottom: 8 }}>
+                <label htmlFor="auth-email">Email</label>
+                <input
+                  id="auth-email"
+                  type="email"
+                  value={authEmail}
+                  placeholder="you@company.com"
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendMagicLink()}
+                />
+              </div>
+              {authState.error && <p className="assist-error" style={{ marginBottom: 16 }}>{authState.error}</p>}
+              <button type="button" className="btn btn-primary" disabled={authState.sending} onClick={sendMagicLink} style={{ marginTop: 8 }}>
+                {authState.sending ? "Sending…" : "Send sign-in link"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       {view === "home" ? renderHome() : renderWizard()}
       {renderModal()}
+      {renderAuthModal()}
     </div>
   );
 }

@@ -5,6 +5,56 @@ reasoning, so the "why" survives past whoever made the call. Append new
 entries at the top; don't rewrite history — if a decision gets reversed,
 add a new entry that supersedes it and note what changed.
 
+## 2026-09-04 — Reversed: add optional accounts + persistence via Supabase (supersedes "no backend" scoping)
+
+**Decision:** Wavelength gets an *optional* backend — Supabase for auth
+(passwordless magic-link email) and Postgres persistence of the personal
+manual, keyed to the signed-in account. This directly reverses the
+2026-08-24-era "no user accounts or backend persistence" scoping in
+`docs/REQUIREMENTS.md` (that line itself dates from the original
+Next.js rebuild decision below, not a separate standalone entry).
+
+**Why:** Product direction is shifting from a purely individual tool
+toward "working better together as a team" — a shared Team Working
+Agreement that a team collaboratively builds, with each member's personal
+manual optional-but-encouraged along the way (see
+`docs/REQUIREMENTS.md` -> Roadmap). A collaborative, multi-person feature
+is impossible without knowing who someone is across visits and persisting
+their answers, so accounts are now a prerequisite rather than a
+deliberately-excluded feature.
+
+**Why Supabase specifically (vs. Clerk + separate Postgres, or Auth.js +
+Vercel Postgres):** one service instead of two (auth + Postgres + storage
+bundled), generous free tier, plays well with Vercel/Next.js, and RLS
+(row-level security) maps cleanly onto "every user can only touch their
+own row" without hand-rolling authorization checks in every route.
+
+**Why magic-link, not passwords or social login:** no password to create,
+remember, or leak; smallest amount of auth UI to build and maintain; fits
+a product that's meant to feel low-friction and five-minutes-to-value.
+
+**Why it stays fully optional:** the sign-in affordance is hidden
+entirely (not shown-but-broken) when `NEXT_PUBLIC_SUPABASE_URL` /
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` aren't set, and the app works exactly as
+it did before this change when signed out — same graceful-degradation
+pattern already established for `ANTHROPIC_API_KEY`. Nobody is forced
+into an account just to try the wizard.
+
+**Handling the secrets:** `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_ANON_KEY` are client-exposed by design (Supabase's
+anon key is meant to be public; RLS is the actual access control) and are
+set the same way as `ANTHROPIC_API_KEY` — `.env.local` locally (gitignored,
+`.env.local.example` documents the names), `vercel env add <name> <env>`
+for deploys, never typed into chat or passed as a shell argument. No
+service-role (secret) key is used anywhere in this phase — RLS alone
+authorizes every read/write, so there's no server-side secret to protect
+yet.
+
+**Scope of this change:** Phase 1 only — accounts + personal-manual
+persistence. No team/invite/collaborative-agreement tables yet (Phases
+2-3, see Roadmap); `supabase/schema.sql` has just the one table on
+purpose and says so in a comment.
+
 ## 2026-08-24 — Direct Anthropic API key, not Vercel AI Gateway
 
 **Decision:** AI assist calls Anthropic directly via `@ai-sdk/anthropic`
