@@ -83,25 +83,23 @@ one client component:
   `server.ts` is for Route Handlers; `middleware.ts` refreshes the auth
   cookie on every request; `app/auth/callback/route.ts` exchanges the
   magic-link code for a session. See `docs/DECISIONS.md` (2026-09-04) for
-  the reasoning and `supabase/schema.sql` for the DB schema + RLS
-  policies — run that file in the Supabase SQL Editor once per project.
-- **`app/join/[code]/page.tsx`, `supabase/schema_phase2.sql`,
-  `supabase/schema_team_management.sql`** — teams, gated by the same
+  the reasoning and `supabase/migrations/20260828120000_accounts_and_manuals.sql` for the DB schema + RLS
+  policies — see "Database migrations" below for how migrations get applied.
+- **`app/join/[code]/page.tsx`, `supabase/migrations/20260904160000_teams.sql`,
+  `supabase/migrations/20260905220000_team_management.sql`** — teams, gated by the same
   `isSupabaseConfigured()` check. Team create/join/roster/rename/leave/
   delete all go through `security definer` RPCs, not direct table access —
   `teams`/`team_members` have RLS enabled with no row policies at all; see
   `docs/DECISIONS.md` (2026-09-04, "Teams (Phase 2)" and "Team management")
   for why. `/join/[code]` is a thin server-component redirect to
   `/?join=CODE` — the actual join UI lives in `page.tsx` alongside
-  everything else, there's no separate router. Run
-  `supabase/schema_phase2.sql` then `supabase/schema_team_management.sql`
-  once, after `schema.sql`.
-- **`supabase/schema_manual_sharing.sql`** — one RPC,
+  everything else, there's no separate router.
+- **`supabase/migrations/20260905220100_manual_sharing.sql`** — one RPC,
   `get_team_member_manual`, letting a team member read (never write) a
   teammate's `personal_manuals` row, gated on both people being members of
   the same team. Does not add a row policy to `personal_manuals` itself —
-  see `docs/DECISIONS.md` (2026-09-04). Run once, after `schema_phase2.sql`.
-- **`supabase/schema_phase3.sql`, `AGREEMENT_QUESTIONS` in `page.tsx`,
+  see `docs/DECISIONS.md` (2026-09-04).
+- **`supabase/migrations/20260905000000_team_working_agreement.sql`, `AGREEMENT_QUESTIONS` in `page.tsx`,
   `/api/assist`'s `team-synthesis` mode** — the Team Working Agreement
   (Phase 3). Same RLS pattern as Phase 2:
   `team_agreement_responses`/`team_agreement_drafts`/`team_agreements`
@@ -113,14 +111,32 @@ one client component:
   defense-in-depth, but the UI shouldn't normally reach that path while
   finalized. See `docs/DECISIONS.md` (2026-09-04, "Team Working Agreement
   (Phase 3)" and the read-only-finalize entry above it) for the full
-  reasoning. Run `supabase/schema_phase3.sql` once, after `schema.sql` and
-  `schema_phase2.sql`.
+  reasoning.
 
-### Schema run order
+### Database migrations
 
-`schema.sql` → `schema_phase2.sql` → `schema_phase3.sql` →
-`schema_team_management.sql` → `schema_manual_sharing.sql`. Each is safe to
-re-run.
+The schema lives in `supabase/migrations/` as ordinary, timestamp-ordered
+Supabase CLI migration files — applied with `npx supabase db push`, not by
+pasting SQL into the dashboard's SQL Editor. One-time setup (`supabase
+login` + `supabase link --project-ref <ref>`) and the day-to-day
+`db push` workflow are documented in the README's "Database migrations"
+section — that's the version to point a person at; don't duplicate the
+exact commands here. `supabase link`/`login` needs interactive auth
+(a browser, a database password) and should always be run by the project
+owner in their own terminal, never scripted or entered on someone's
+behalf.
+
+Every migration file is written to be safe to re-run (`create table if not
+exists`, `create or replace function`, `drop function if exists` first
+where a signature changes) — necessary because `db push` will replay all
+of them the first time it's linked to a project that already has this
+schema from being pasted in by hand, and harmless if it's replayed again
+later.
+
+Add a new migration as a new file named
+`<YYYYMMDDHHmmss>_<short_description>.sql` (later timestamp than every
+existing file) — never edit an already-applied migration file in place,
+since `db push` only looks at what's new.
 
 ### Testing a schema change: run it against real Postgres, not just mocked client state
 

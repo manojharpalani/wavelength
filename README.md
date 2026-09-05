@@ -56,22 +56,7 @@ To turn on sign-in, saved manuals, and teams:
    NEXT_PUBLIC_SUPABASE_URL=...
    NEXT_PUBLIC_SUPABASE_ANON_KEY=...
    ```
-3. In the Supabase SQL Editor, run these files **in order** — each is safe
-   to re-run:
-   - `supabase/schema.sql` — accounts + saved personal manuals
-     (`personal_manuals`, owner-only RLS).
-   - `supabase/schema_phase2.sql` — teams: create, invite via a shareable
-     link, roster (`teams`, `team_members`, deny-by-default RLS +
-     security-definer RPCs).
-   - `supabase/schema_phase3.sql` — the Team Working Agreement: shared
-     questions, per-member answers, the editable draft, and the finalized
-     state (`team_agreement_responses`, `team_agreement_drafts`,
-     `team_agreements`, same RLS pattern as Phase 2).
-   - `supabase/schema_team_management.sql` — rename / leave / delete a
-     team.
-   - `supabase/schema_manual_sharing.sql` — lets teammates view each
-     other's completed personal manual (mediated by team membership, not a
-     change to `personal_manuals`' own owner-only policies).
+3. Apply the database schema — see **Database migrations** below.
 4. In Supabase's Auth settings, make sure email (magic link / OTP) sign-in
    is enabled — it is by default on a new project.
 
@@ -82,6 +67,54 @@ Why this design is documented in detail in `docs/DECISIONS.md` (search for
 the 2026-09-04 entries) — worth reading before changing the RLS/RPC
 pattern, since every team-scoped table deliberately has **no** direct row
 policies and relies entirely on security-definer functions instead.
+
+## Database migrations
+
+The schema — accounts, teams, the working agreement, and everything since
+— lives as ordinary, timestamp-ordered files in `supabase/migrations/`,
+applied with the Supabase CLI instead of copy-pasting SQL into the
+dashboard's SQL Editor:
+
+- `20260828120000_accounts_and_manuals.sql` — accounts + saved personal
+  manuals (`personal_manuals`, owner-only RLS).
+- `20260904160000_teams.sql` — teams: create, invite via a shareable link,
+  roster (`teams`, `team_members`, deny-by-default RLS + security-definer
+  RPCs).
+- `20260905000000_team_working_agreement.sql` — the Team Working
+  Agreement: shared questions, per-member answers, the editable draft, and
+  the finalized state (same RLS pattern as teams).
+- `20260905220000_team_management.sql` — rename / leave / delete a team.
+- `20260905220100_manual_sharing.sql` — lets teammates view each other's
+  completed personal manual (mediated by team membership, not a change to
+  `personal_manuals`' own owner-only policies).
+
+**One-time setup**, run yourself in your own terminal — linking asks for
+your project ref and (if prompted) your database password, so this isn't
+something to script or hand to an assistant:
+
+```bash
+npx supabase login                                  # opens a browser to authenticate
+npx supabase link --project-ref YOUR_PROJECT_REF     # the <ref> in https://<ref>.supabase.co
+npx supabase db push                                 # applies every migration, in order
+```
+
+Your project ref is the subdomain in `NEXT_PUBLIC_SUPABASE_URL`. If `link`
+or `db push` asks for a database password you don't have handy, find or
+reset it in Project Settings → Database.
+
+**From then on**, whenever the migrations folder gets new files (pull the
+latest code first):
+
+```bash
+npx supabase db push
+```
+
+— it applies only what's new, in filename order; nothing to copy, nothing
+to run twice by accident. Every migration is written to be safe to re-run
+regardless (`create table if not exists`, `create or replace function`,
+`drop function if exists` first where a signature changes), which is what
+makes the very first `db push` safe against a project that already has
+some of this schema from being pasted in by hand before this existed.
 
 ## AI assist
 

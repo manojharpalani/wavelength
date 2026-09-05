@@ -5,6 +5,16 @@ reasoning, so the "why" survives past whoever made the call. Append new
 entries at the top; don't rewrite history — if a decision gets reversed,
 add a new entry that supersedes it and note what changed.
 
+## 2026-09-05 — Schema files moved into `supabase/migrations/`, applied via the Supabase CLI
+
+**Decision:** The five loose `supabase/schema*.sql` files (each meant to be pasted into the dashboard's SQL Editor by hand, in a documented order) are now Supabase CLI migrations under `supabase/migrations/`, named `<timestamp>_<description>.sql` in the same order they were always meant to run: `20260828120000_accounts_and_manuals.sql`, `20260904160000_teams.sql`, `20260905000000_team_working_agreement.sql`, `20260905220000_team_management.sql`, `20260905220100_manual_sharing.sql`. Applying them (first time or after a new one's added) is one command, `npx supabase db push`, after a one-time `supabase login` + `supabase link --project-ref <ref>` — both documented in the README.
+
+**Why:** asked directly — copy-pasting SQL into a web UI, in the right order, every time the schema changed, was manual and easy to get wrong (skip a file, paste one twice, paste them out of order). The Supabase CLI's migration model is the standard tool for exactly this, and this project already had everything migrations need: every file was already written to be idempotent (`create table if not exists`, `create or replace function`), which is what makes the very first `db push` safe to run against a project whose schema so far only exists because someone pasted these same files in by hand.
+
+**What this deliberately doesn't automate:** `supabase login` (browser OAuth) and `supabase link` (can prompt for the database password) still require a person, in their own terminal — on purpose. Handling a database password, or driving a browser-based auth flow on someone's behalf, isn't something to do from an assistant session even when technically possible; that's real credential handling, not "run this idempotent SQL file." Everything downstream of that one-time link (every future `db push`) needs no credential either — it reuses the CLI's saved session.
+
+**Naming convention:** new schema work is a new file in `supabase/migrations/`, timestamped later than every existing one — never an edit to an already-applied migration, since `db push` only replays files it hasn't seen recorded as applied yet.
+
 ## 2026-09-05 — Owner-gated "Assemble with AI," but per-question editing stays open to everyone
 
 **Decision:** Added one new capability — a single button that runs the existing per-question AI synthesis for every question with at least one teammate's answer, in sequence, so the whole draft gets assembled in one action instead of clicking "Draft from N answers" eight times. This button is shown only to the team owner (`activeTeam.is_owner`); everyone else sees an explanatory message naming the owner instead. Nothing else changed: any team member can still draft, edit, or overwrite any individual question's draft text by hand or via its own "Draft from N answers" button, and `save_agreement_draft` still accepts writes from any member, exactly as decided in the original Phase 3 entry below ("any member can edit and finalize").

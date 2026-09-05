@@ -75,7 +75,7 @@ When it's configured:
   reloads automatically on a later visit.
 - Signing in never clobbers an in-progress anonymous draft: the saved
   manual only loads if the current in-memory form is still empty.
-- Row-level security (see `supabase/schema.sql`) restricts every direct
+- Row-level security (see `supabase/migrations/20260828120000_accounts_and_manuals.sql`) restricts every direct
   read and write to the signed-in user's own row. Teammates can view
   (read-only) a completed manual belonging to someone on the same team,
   mediated by a `security definer` RPC — see "Teams" below — not by a
@@ -149,8 +149,8 @@ Phased so each step ships independent value:
   their personal manual (with read-only viewing of it), and team
   management (rename/leave/delete). `teams`/`team_members` use
   deny-by-default RLS — all access goes through `security definer` RPCs
-  (see `supabase/schema_phase2.sql`, `supabase/schema_team_management.sql`,
-  `supabase/schema_manual_sharing.sql`, and docs/DECISIONS.md).
+  (see `supabase/migrations/20260904160000_teams.sql`, `supabase/migrations/20260905220000_team_management.sql`,
+  `supabase/migrations/20260905220100_manual_sharing.sql`, and docs/DECISIONS.md).
 - **Phase 3 — done.** Collaborative Team Working Agreement: 8 shared
   "how should we work" questions (communication, meeting rhythm,
   decision-making, PR review standard, on-call expectations, core hours,
@@ -164,5 +164,5 @@ Phased so each step ships independent value:
   exports/prints with the same letterhead styling as the personal manual.
   `team_agreement_responses`, `team_agreement_drafts`, and
   `team_agreements` follow the same deny-by-default RLS + `security
-  definer` RPC pattern as Phase 2 — see `supabase/schema_phase3.sql` and
+  definer` RPC pattern as Phase 2 — see `supabase/migrations/20260905000000_team_working_agreement.sql` and
   docs/DECISIONS.md.
