@@ -47,7 +47,7 @@ begin
   if exists (select 1 from teams where id = p_team_id and created_by = auth.uid()) then
     raise exception 'Owners can''t leave a team — delete it instead, or ask a teammate to take over';
   end if;
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
 

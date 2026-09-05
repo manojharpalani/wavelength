@@ -444,7 +444,7 @@ function ReviewSection({ heading, rows }: { heading: string; rows: { label: stri
 // ---------- main app ----------
 
 type TeamSummary = { id: string; name: string; invite_code: string; joined_at: string; is_owner: boolean };
-type RosterRow = { user_id: string; email: string; joined_at: string; has_manual: boolean };
+type RosterRow = { user_id: string; email: string; joined_at: string; has_manual: boolean; is_owner: boolean };
 
 // ---------- team working agreement (Phase 3) ----------
 
@@ -524,6 +524,9 @@ export default function Home() {
   const [synthesis, setSynthesis] = useState<Record<string, AssistState>>({});
   const responseSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const draftSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const [responseSaveStatus, setResponseSaveStatus] = useState<Record<string, "pending" | "saved" | "error">>({});
+  const [saveAllState, setSaveAllState] = useState<{ saving: boolean; savedAt?: number }>({ saving: false });
+  const [assembleState, setAssembleState] = useState<{ loading: boolean; done: number; total: number; error?: string; confirming?: boolean }>({ loading: false, done: 0, total: 0 });
 
   const hasStarted = step > 0 || Object.values(values).some(isFilled);
   const ctaLabel = hasStarted ? "Pick up where you left off" : "Find your wavelength";
@@ -674,6 +677,9 @@ export default function Home() {
     setConfirmingLeave(false);
     setConfirmingDelete(false);
     setTeamActionState({ loading: false });
+    setResponseSaveStatus({});
+    setSaveAllState({ saving: false });
+    setAssembleState({ loading: false, done: 0, total: 0 });
     // Also pull the agreement's status so the "Team Working Agreement" card
     // can show where things stand without making someone click into it.
     loadAgreementData(team.id);
@@ -879,26 +885,44 @@ export default function Home() {
 
   function setMyResponse(key: string, val: string) {
     setMyResponses((r) => ({ ...r, [key]: val }));
+    setResponseSaveStatus((s) => ({ ...s, [key]: "pending" }));
     if (!activeTeam) return;
-    const teamId = activeTeam.id;
     clearTimeout(responseSaveTimers.current[key]);
     responseSaveTimers.current[key] = setTimeout(() => {
-      const supabase = getSupabaseBrowserClient();
-      if (!supabase) return;
-      supabase.rpc("submit_agreement_response", { p_team_id: teamId, p_question_key: key, p_answer: val }).then(({ error }) => {
-        if (error) {
-          console.error("Wavelength: saving agreement response failed", error);
-          return;
-        }
-        // Keep the "everyone's answers" tab in sync with what we just saved.
-        setAgreementResponses((rows) => {
-          const email = authUser?.email || "";
-          const others = rows.filter((r) => !(r.question_key === key && r.user_id === authUser?.id));
-          if (!val.trim()) return others;
-          return [...others, { question_key: key, user_id: authUser?.id || "", email, answer: val, updated_at: new Date().toISOString() }];
-        });
-      });
+      saveMyResponseNow(key, val);
     }, 900);
+  }
+
+  // Actually writes one response to the database, right now — used both by
+  // the debounced autosave above and by the explicit "Save my answers"
+  // button, which flushes every question through here immediately so
+  // clicking it gives a real, current confirmation rather than just
+  // trusting whatever autosave already did in the background.
+  async function saveMyResponseNow(key: string, val: string) {
+    if (!activeTeam) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    const { error } = await supabase.rpc("submit_agreement_response", { p_team_id: activeTeam.id, p_question_key: key, p_answer: val });
+    if (error) {
+      console.error("Wavelength: saving agreement response failed", error);
+      setResponseSaveStatus((s) => ({ ...s, [key]: "error" }));
+      return;
+    }
+    setResponseSaveStatus((s) => ({ ...s, [key]: "saved" }));
+    // Keep the "everyone's answers" tab in sync with what we just saved.
+    setAgreementResponses((rows) => {
+      const email = authUser?.email || "";
+      const others = rows.filter((r) => !(r.question_key === key && r.user_id === authUser?.id));
+      if (!val.trim()) return others;
+      return [...others, { question_key: key, user_id: authUser?.id || "", email, answer: val, updated_at: new Date().toISOString() }];
+    });
+  }
+
+  async function saveAllResponsesNow() {
+    setSaveAllState({ saving: true });
+    AGREEMENT_QUESTIONS.forEach((q) => clearTimeout(responseSaveTimers.current[q.key]));
+    await Promise.all(AGREEMENT_QUESTIONS.map((q) => saveMyResponseNow(q.key, myResponses[q.key] || "")));
+    setSaveAllState({ saving: false, savedAt: Date.now() });
   }
 
   function setAgreementDraftText(key: string, val: string) {
@@ -916,11 +940,11 @@ export default function Home() {
     }, 900);
   }
 
-  async function runAgreementSynthesis(q: AgreementQuestion) {
+  async function runAgreementSynthesis(q: AgreementQuestion): Promise<boolean> {
     const answers = agreementResponses.filter((r) => r.question_key === q.key && r.answer.trim());
     if (answers.length === 0) {
       setSynthesis((s) => ({ ...s, [q.key]: { loading: false, error: "No answers yet to draft from — wait for teammates to answer, or write it yourself." } }));
-      return;
+      return false;
     }
     setSynthesis((s) => ({ ...s, [q.key]: { loading: true } }));
     try {
@@ -938,9 +962,49 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
       setAgreementDraftText(q.key, data.text);
       setSynthesis((s) => ({ ...s, [q.key]: { loading: false } }));
+      return true;
     } catch (err) {
       setSynthesis((s) => ({ ...s, [q.key]: { loading: false, error: err instanceof Error ? err.message : "Something went wrong." } }));
+      return false;
     }
+  }
+
+  // Owner-only convenience: run the per-question AI synthesis above for
+  // every question that has at least one teammate's answer, one after
+  // another, so the whole draft gets assembled in one action instead of
+  // clicking "Draft from N answers" eight separate times. Still just
+  // fills the same editable draft textareas — nothing is saved as final
+  // until someone finalizes it.
+  async function runAssembleAll() {
+    const questionsWithAnswers = AGREEMENT_QUESTIONS.filter((q) =>
+      agreementResponses.some((r) => r.question_key === q.key && r.answer.trim())
+    );
+    if (questionsWithAnswers.length === 0) {
+      setAssembleState({ loading: false, done: 0, total: 0, error: "No teammates have answered any questions yet — nothing to assemble from." });
+      return;
+    }
+    setAssembleState({ loading: true, done: 0, total: questionsWithAnswers.length });
+    let failures = 0;
+    for (const q of questionsWithAnswers) {
+      const ok = await runAgreementSynthesis(q);
+      if (!ok) failures += 1;
+      setAssembleState((s) => ({ ...s, done: s.done + 1 }));
+    }
+    setAssembleState({
+      loading: false,
+      done: questionsWithAnswers.length,
+      total: questionsWithAnswers.length,
+      error: failures > 0 ? `${failures} of ${questionsWithAnswers.length} question${failures === 1 ? "" : "s"} couldn't be drafted — try those individually below.` : undefined,
+    });
+  }
+
+  function confirmAssembleAll() {
+    const hasExistingDraft = AGREEMENT_QUESTIONS.some((q) => (agreementDraft[q.key] || "").trim());
+    if (hasExistingDraft) {
+      setAssembleState((s) => ({ ...s, confirming: true }));
+      return;
+    }
+    runAssembleAll();
   }
 
   async function setFinalized(finalized: boolean) {
@@ -1389,7 +1453,11 @@ export default function Home() {
                 const canView = m.has_manual && m.user_id !== authUser?.id;
                 const rowContent = (
                   <>
-                    <span className="roster-email">{m.email}{m.user_id === authUser?.id ? " (you)" : ""}</span>
+                    <span className="roster-email">
+                      {m.email}
+                      {m.user_id === authUser?.id ? " (you)" : ""}
+                      {m.is_owner && <span className="tag" style={{ marginLeft: 8 }}>Owner</span>}
+                    </span>
                     <span className={"roster-badge" + (m.has_manual ? " roster-badge-done" : "")}>
                       {m.has_manual ? "Manual added" : "No manual yet"}
                     </span>
@@ -1488,22 +1556,45 @@ export default function Home() {
         <p className="step-subtitle" style={{ marginBottom: 22 }}>
           You&apos;ve answered {answeredCount} of {AGREEMENT_QUESTIONS.length} — skip any you&apos;re not sure about, you can always come back.
         </p>
-        {AGREEMENT_QUESTIONS.map((q) => (
-          <div className="field" key={q.key}>
-            <label htmlFor={`aq-${q.key}`}>{q.label}</label>
-            <textarea
-              id={`aq-${q.key}`}
-              value={myResponses[q.key] || ""}
-              placeholder={q.placeholder}
-              onChange={(e) => setMyResponse(q.key, e.target.value)}
-            />
+        {AGREEMENT_QUESTIONS.map((q) => {
+          const status = responseSaveStatus[q.key];
+          return (
+            <div className="field" key={q.key}>
+              <div className="field-label-row">
+                <label htmlFor={`aq-${q.key}`}>{q.label}</label>
+                <span className={"save-status" + (status === "error" ? " save-status-error" : "")}>
+                  {status === "pending" ? "Saving…" : status === "saved" ? "Saved ✓" : status === "error" ? "Couldn't save — try again" : ""}
+                </span>
+              </div>
+              <textarea
+                id={`aq-${q.key}`}
+                value={myResponses[q.key] || ""}
+                placeholder={q.placeholder}
+                onChange={(e) => setMyResponse(q.key, e.target.value)}
+              />
+            </div>
+          );
+        })}
+
+        <div className="agreement-finalize">
+          <p className="step-subtitle" style={{ marginBottom: 0 }}>
+            {saveAllState.savedAt
+              ? "All your answers are saved."
+              : "Answers save automatically as you type — or save them explicitly with the button here."}
+          </p>
+          <div className="agreement-finalize-actions">
+            <button type="button" className="btn btn-secondary" disabled={saveAllState.saving} onClick={saveAllResponsesNow}>
+              {saveAllState.saving ? "Saving…" : "Save my answers"}
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => setAgreementTab("compare")}>See how the team compares →</button>
           </div>
-        ))}
+        </div>
       </div>
     );
   }
 
   function renderAgreementCompare() {
+    const anyAnswered = agreementResponses.length > 0;
     return (
       <div className="agreement-compare">
         {AGREEMENT_QUESTIONS.map((q) => {
@@ -1532,6 +1623,20 @@ export default function Home() {
             </div>
           );
         })}
+
+        {anyAnswered && (
+          <div className="agreement-cta">
+            <div>
+              <h3 className="review-heading" style={{ marginBottom: 4 }}>Ready to shape this into one agreement?</h3>
+              <p className="step-subtitle" style={{ marginBottom: 0 }}>
+                {activeTeam?.is_owner
+                  ? "Head to the shared draft to assemble it with AI, or write it by hand."
+                  : "Head to the shared draft to write or refine it — anyone on the team can edit it."}
+              </p>
+            </div>
+            <button type="button" className="btn btn-primary" onClick={() => setAgreementTab("draft")}>Go to shared draft →</button>
+          </div>
+        )}
       </div>
     );
   }
@@ -1564,12 +1669,49 @@ export default function Home() {
 
     const answeredCount = AGREEMENT_QUESTIONS.filter((q) => (agreementDraft[q.key] || "").trim()).length;
     const hasDraftContent = answeredCount > 0;
+    const totalAnswered = AGREEMENT_QUESTIONS.filter((q) => agreementResponses.some((r) => r.question_key === q.key && r.answer.trim())).length;
+    const isOwner = Boolean(activeTeam?.is_owner);
+    const ownerRow = roster.find((m) => m.is_owner);
 
     return (
       <div className="agreement-draft">
         <p className="step-subtitle" style={{ marginBottom: 22 }}>
           {answeredCount} of {AGREEMENT_QUESTIONS.length} questions have a shared answer so far.
         </p>
+
+        <div className="agreement-cta assemble-card">
+          <div>
+            <h3 className="review-heading" style={{ marginBottom: 4 }}>Assemble the team manual with AI</h3>
+            <p className="step-subtitle" style={{ marginBottom: 0 }}>
+              {isOwner
+                ? totalAnswered > 0
+                  ? `Draft all ${totalAnswered} question${totalAnswered === 1 ? "" : "s"} with teammate answers in one go — you can edit anything after.`
+                  : "Nothing to assemble yet — wait for teammates to answer a few questions first."
+                : `Only ${ownerRow ? ownerRow.email : "the team owner"} can assemble the whole draft at once — you can still draft or edit any question yourself below.`}
+            </p>
+            {assembleState.loading && (
+              <p className="step-subtitle" style={{ marginBottom: 0, marginTop: 6 }}>Assembling {assembleState.done} of {assembleState.total}…</p>
+            )}
+            {!assembleState.loading && assembleState.error && (
+              <p className="assist-error" style={{ marginTop: 6 }}>{assembleState.error}</p>
+            )}
+            {assembleState.confirming && (
+              <p className="step-subtitle" style={{ marginBottom: 0, marginTop: 10 }}>
+                This will overwrite the current draft for every question with teammate answers.
+                <span style={{ display: "inline-flex", gap: 8, marginLeft: 10 }}>
+                  <button type="button" className="btn btn-primary" style={{ padding: "6px 14px" }} onClick={runAssembleAll}>Assemble anyway</button>
+                  <button type="button" className="btn btn-ghost" style={{ padding: "6px 14px" }} onClick={() => setAssembleState((s) => ({ ...s, confirming: false }))}>Cancel</button>
+                </span>
+              </p>
+            )}
+          </div>
+          {isOwner && !assembleState.confirming && (
+            <button type="button" className="btn btn-primary" disabled={assembleState.loading || totalAnswered === 0} onClick={confirmAssembleAll}>
+              {assembleState.loading ? "Assembling…" : "✨ Assemble with AI"}
+            </button>
+          )}
+        </div>
+
         {AGREEMENT_QUESTIONS.map((q) => {
           const state = synthesis[q.key];
           const answerCount = agreementResponses.filter((r) => r.question_key === q.key).length;

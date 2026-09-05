@@ -61,7 +61,11 @@ begin
   if auth.uid() is null then
     raise exception 'Must be signed in';
   end if;
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  -- Aliased/qualified: unqualified `user_id` here would be ambiguous
+  -- against this function's own `user_id` OUT parameter wherever one
+  -- exists (e.g. get_team_agreement_responses) under plpgsql's default
+  -- #variable_conflict = error. See docs/DECISIONS.md.
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
 
@@ -81,7 +85,11 @@ set search_path = public
 stable
 as $$
 begin
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  -- Aliased/qualified: unqualified `user_id` here would be ambiguous
+  -- against this function's own `user_id` OUT parameter wherever one
+  -- exists (e.g. get_team_agreement_responses) under plpgsql's default
+  -- #variable_conflict = error. See docs/DECISIONS.md.
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
   return query
@@ -101,7 +109,11 @@ set search_path = public
 stable
 as $$
 begin
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  -- Aliased/qualified: unqualified `user_id` here would be ambiguous
+  -- against this function's own `user_id` OUT parameter wherever one
+  -- exists (e.g. get_team_agreement_responses) under plpgsql's default
+  -- #variable_conflict = error. See docs/DECISIONS.md.
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
   return query
@@ -122,7 +134,11 @@ set search_path = public
 stable
 as $$
 begin
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  -- Aliased/qualified: unqualified `user_id` here would be ambiguous
+  -- against this function's own `user_id` OUT parameter wherever one
+  -- exists (e.g. get_team_agreement_responses) under plpgsql's default
+  -- #variable_conflict = error. See docs/DECISIONS.md.
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
   return query
@@ -146,7 +162,11 @@ begin
   if auth.uid() is null then
     raise exception 'Must be signed in';
   end if;
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  -- Aliased/qualified: unqualified `user_id` here would be ambiguous
+  -- against this function's own `user_id` OUT parameter wherever one
+  -- exists (e.g. get_team_agreement_responses) under plpgsql's default
+  -- #variable_conflict = error. See docs/DECISIONS.md.
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
 
@@ -169,7 +189,11 @@ set search_path = public
 stable
 as $$
 begin
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  -- Aliased/qualified: unqualified `user_id` here would be ambiguous
+  -- against this function's own `user_id` OUT parameter wherever one
+  -- exists (e.g. get_team_agreement_responses) under plpgsql's default
+  -- #variable_conflict = error. See docs/DECISIONS.md.
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
   return query
@@ -192,7 +216,11 @@ begin
   if auth.uid() is null then
     raise exception 'Must be signed in';
   end if;
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  -- Aliased/qualified: unqualified `user_id` here would be ambiguous
+  -- against this function's own `user_id` OUT parameter wherever one
+  -- exists (e.g. get_team_agreement_responses) under plpgsql's default
+  -- #variable_conflict = error. See docs/DECISIONS.md.
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
 

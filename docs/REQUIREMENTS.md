@@ -92,12 +92,18 @@ Once a team exists (see Roadmap Phase 2/3 for how it got built):
 - The roster shows every member and whether they've completed their
   personal manual; clicking a teammate who has one opens it read-only.
 - The Team Working Agreement is 8 shared questions. Each member answers
-  privately first, can see everyone's answers side by side, then any
-  member shapes a shared draft (by hand, or via AI synthesis from
-  everyone's answers). Any member can mark it **finalized** — the
-  agreement then becomes read-only (only "Print / Save as PDF" and an
-  explicit "Edit agreement" button are shown); editing it again is a
-  deliberate action, not a side effect of clicking into a field.
+  privately first — each answer shows a save status ("Saving…" / "Saved
+  ✓" / an error if it fails) and there's an explicit "Save my answers"
+  button, not just silent autosave. Members can see everyone's answers
+  side by side, then shape a shared draft: any member can draft or edit
+  a single question by hand or via AI synthesis from everyone's answers
+  to it, and the team **owner** additionally has a one-click "Assemble
+  with AI" that drafts every question with at least one answer in one
+  pass (confirming first if it would overwrite existing draft text).
+  Any member can mark the agreement **finalized** — it then becomes
+  read-only (only "Print / Save as PDF" and an explicit "Edit agreement"
+  button are shown); editing it again is a deliberate action, not a side
+  effect of clicking into a field.
 
 ## Non-functional
 

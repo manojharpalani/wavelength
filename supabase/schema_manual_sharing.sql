@@ -22,10 +22,10 @@ begin
   if auth.uid() is null then
     raise exception 'Must be signed in';
   end if;
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = auth.uid()) then
+  if not exists (select 1 from team_members tm_check where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()) then
     raise exception 'Not a member of this team';
   end if;
-  if not exists (select 1 from team_members where team_id = p_team_id and user_id = p_user_id) then
+  if not exists (select 1 from team_members tm_check2 where tm_check2.team_id = p_team_id and tm_check2.user_id = p_user_id) then
     raise exception 'That person is not on this team';
   end if;
 

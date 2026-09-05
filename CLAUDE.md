@@ -122,6 +122,26 @@ one client component:
 `schema_team_management.sql` → `schema_manual_sharing.sql`. Each is safe to
 re-run.
 
+### Testing a schema change: run it against real Postgres, not just mocked client state
+
+Every `plpgsql` function in these files that checks team membership does it
+with `select 1 from team_members tm_check where tm_check.team_id = ... and
+tm_check.user_id = ...` — aliased and column-qualified on purpose. An
+unqualified `team_id`/`user_id` there is only a problem once some function's
+`returns table (...)` happens to declare an OUT parameter with the same
+name (plpgsql's default `#variable_conflict = error` makes that ambiguous
+and the call fails) — which is exactly what happened to
+`get_team_agreement_responses` and `get_team_roster` for the entirety of
+Phase 2 and Phase 3, undetected, because every round of testing in this
+project mocked the *client's* React state to check rendering rather than
+ever executing these functions against a real database. Keep aliasing this
+pattern in any new function, and before considering a schema change done,
+actually run it: spin up local Postgres (`service postgresql start` in this
+sandbox), stub `auth.uid()`/`auth.users`/the `anon`/`authenticated` roles,
+replay the schema files in order, and call the new or changed function as
+two different users with real rows — not just a syntax check. See
+`docs/DECISIONS.md` (2026-09-05) for what this caught.
+
 ### Vercel project quirk
 
 The Vercel project (`soul-map-ai/wavelength`) was originally created for a

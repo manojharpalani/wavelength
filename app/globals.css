@@ -175,6 +175,12 @@ a:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
 .agreement-cta { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-top: 36px; padding: 20px 22px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
 .agreement-cta .btn { flex-shrink: 0; }
 
+.assemble-card { align-items: flex-start; margin-top: 0; margin-bottom: 28px; border-color: color-mix(in oklch, var(--accent) 35%, var(--line)); }
+.assemble-card > div:first-child { flex: 1; }
+
+.save-status { font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.save-status-error { color: #b8452f; }
+
 .agreement-questions .field, .agreement-draft .field { margin-bottom: 26px; }
 .agreement-questions .field:last-child, .agreement-draft .field:last-child { margin-bottom: 0; }
 

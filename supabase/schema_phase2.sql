@@ -123,27 +123,37 @@ as $$
   order by tm.joined_at desc;
 $$;
 
--- Roster for one team: who's joined, when, and whether they've started
--- their personal manual. Raises if the caller isn't a member.
+-- Roster for one team: who's joined, when, whether they've started their
+-- personal manual, and whether they're the team owner. Raises if the
+-- caller isn't a member. Dropped first because adding `is_owner` changes
+-- the return signature — CREATE OR REPLACE can't do that on its own.
+drop function if exists public.get_team_roster(uuid);
 create or replace function public.get_team_roster(p_team_id uuid)
-returns table (user_id uuid, email text, joined_at timestamptz, has_manual boolean)
+returns table (user_id uuid, email text, joined_at timestamptz, has_manual boolean, is_owner boolean)
 language plpgsql
 security definer
 set search_path = public
 stable
 as $$
 begin
+  -- Aliased and column-qualified on purpose: `team_members.user_id` would
+  -- otherwise be ambiguous against this function's own `user_id` OUT
+  -- parameter (from RETURNS TABLE) under plpgsql's default
+  -- #variable_conflict = error — a real bug found by testing this
+  -- function against a live Postgres instance rather than only mocking
+  -- the client. See docs/DECISIONS.md.
   if not exists (
-    select 1 from team_members
-    where team_id = p_team_id and user_id = auth.uid()
+    select 1 from team_members tm_check
+    where tm_check.team_id = p_team_id and tm_check.user_id = auth.uid()
   ) then
     raise exception 'Not a member of this team';
   end if;
 
   return query
-    select tm.user_id, u.email, tm.joined_at, (pm.user_id is not null)
+    select tm.user_id, u.email, tm.joined_at, (pm.user_id is not null), (t.created_by = tm.user_id)
     from team_members tm
     join auth.users u on u.id = tm.user_id
+    join teams t on t.id = tm.team_id
     left join personal_manuals pm on pm.user_id = tm.user_id
     where tm.team_id = p_team_id
     order by tm.joined_at asc;
