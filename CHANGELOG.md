@@ -7,6 +7,19 @@ when it's deployed to production.
 
 ## [Unreleased]
 
+- Changed: the "About You" Myers-Briggs field is now a dropdown of the 16
+  types (option text shows the type's nickname, e.g. "INTJ — Architect")
+  with a "Take the free test" link to 16personalities.com, instead of free
+  text. Once set, it shows as a small badge — code + nickname, linking out
+  to that type's page — in the "Personality" section of the detailed
+  manual (self view and the read-only teammate-manual view), and a
+  compact code-only version of the same badge now appears next to a
+  member's name on the team roster. The badge is Wavelength's own design,
+  not 16personalities' artwork. Requires the new `get_team_roster` in
+  `supabase/migrations/20260908130000_roster_mbti.sql`.
+
+## 2026-09-08
+
 - Added: signing in now routes a member straight into the wizard's "About
   You" step (name + profile) whenever their personal manual comes back
   empty — a one-time nudge per sign-in, not a hard requirement; the nav
@@ -31,8 +44,6 @@ when it's deployed to production.
   repo) via Next.js's file-based `app/icon.tsx` / `app/opengraph-image.tsx`
   conventions, rendering the existing inline logo squiggle rather than a
   new visual asset.
-
-## 2026-09-08
 
 - Added: database schema is now applied via the Supabase CLI (`npx supabase db push`) instead of pasting SQL into the dashboard's SQL Editor — the five schema files moved into `supabase/migrations/` as ordinary timestamped migrations. One-time setup (`supabase login` + `supabase link`) is in the README; every future schema change is one command. See `docs/DECISIONS.md`.
 - **Fixed: two Postgres functions that made "Everyone's answers" and the roster silently return nothing.** `get_team_agreement_responses` and `get_team_roster` both had an ambiguous unqualified `user_id` reference in their own membership check — plpgsql treats that as an error against the function's own `user_id` output column, so calling either one from the app failed every time and was quietly logged to the console instead of shown anywhere. In practice this meant the "Everyone's answers" tab always looked empty (so there was never anything for the AI to draft from) and the team roster never loaded, no matter how many teammates had actually answered. Neither bug was introduced by this pass — both were caught by testing these functions against a real local Postgres instance for the first time, rather than only mocking the client. Fixed by aliasing the membership-check subquery in every affected function (`schema_phase2.sql`, `schema_phase3.sql`, `schema_manual_sharing.sql`, `schema_team_management.sql` — all safe to re-run). See `docs/DECISIONS.md`.

@@ -31,10 +31,15 @@ team then shapes those individual answers into one agreement.
    Growth, A Few More Things), navigable via a sidebar with progress
    indication. Answers persist in memory for the session (not saved to a
    backend). About You includes an optional, self-reported Myers-Briggs
-   type field — free text, no in-app quiz (avoids MBTI licensing/IP
-   concerns and the scope of building a real typing instrument). Renders
-   as its own "Personality" section in the detailed manual when filled
-   in; omitted from the one-pager, hidden entirely when blank.
+   type field — a dropdown of the 16 types (with a link to take the free
+   test at 16personalities.com for anyone who doesn't know theirs yet), no
+   in-app quiz (avoids MBTI licensing/IP concerns and the scope of
+   building a real typing instrument). Once set, it renders as its own
+   "Personality" section in the detailed manual (self view and, for
+   teammates, the read-only teammate-manual view) as a small badge — code
+   + nickname (e.g. "INTJ — Architect") — linking out to that type's page;
+   the same badge (code only) also appears next to a member's name on the
+   team roster. Omitted from the one-pager, hidden entirely when blank.
 3. **Your Manual (review step)** — renders the collected answers as a
    document, toggle-able between a **Detailed** view (full sections) and a
    **One-pager** view (quick facts + essentials only). Empty state shown if

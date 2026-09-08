@@ -62,13 +62,24 @@ a:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
 .field label { display: block; font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 9px; }
 .field-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
 .field-label-row label { margin-bottom: 0; }
-.field input[type="text"], .field textarea {
+.field input[type="text"], .field textarea, .field select {
   width: 100%; border: 1px solid var(--line-strong); border-radius: 10px; padding: 12px 14px;
   font-size: 15px; font-family: inherit; color: var(--ink); background: var(--surface);
 }
 .field textarea { min-height: 88px; resize: vertical; line-height: 1.55; }
 .field input::placeholder, .field textarea::placeholder { color: var(--placeholder); }
-.field input:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.field input:focus, .field textarea:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+.field-helper-link { display: inline-block; margin-top: 8px; font-size: 13px; font-weight: 600; }
+
+.mbti-badge {
+  display: inline-flex; align-items: center; gap: 6px; color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 12%, white); border: 1px solid color-mix(in oklch, var(--accent) 30%, transparent);
+  border-radius: 999px; padding: 5px 12px 5px 8px; font-size: 13px; font-weight: 600; white-space: nowrap; text-decoration: none;
+}
+.mbti-badge:hover { background: color-mix(in oklch, var(--accent) 20%, white); }
+.mbti-badge-icon { width: 13px; height: 13px; flex-shrink: 0; }
+.mbti-badge-name { font-weight: 500; color: color-mix(in oklch, var(--accent) 70%, black); }
+.mbti-badge-compact { padding: 3px 10px 3px 7px; font-size: 12px; }
 
 .assist-btn {
   display: inline-flex; align-items: center; gap: 5px; background: none; border: none;

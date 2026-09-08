@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 // ---------- content model (ported from the static prototype) ----------
 
-type FieldKind = "text" | "textarea" | "tags" | "segmented";
+type FieldKind = "text" | "textarea" | "tags" | "segmented" | "select";
 
 interface FieldDef {
   key: string;
@@ -15,6 +15,62 @@ interface FieldDef {
   kind: FieldKind;
   placeholder?: string;
   options?: string[];
+  // Friendlier display text for a "select" option than its raw stored
+  // value (e.g. "INTJ — Architect" for a value of "INTJ"). Falls back to
+  // the raw value when omitted.
+  optionLabel?: (value: string) => string;
+  // An optional link shown under a field, e.g. pointing to a free test
+  // for the Myers-Briggs field below.
+  helperLink?: { label: string; href: string };
+}
+
+// The 16 Myers-Briggs types, self-reported (see docs/DECISIONS.md — no
+// in-app quiz, no licensed MBTI branding/artwork). Used for the "About
+// You" dropdown, and to link out to (and label) a person's type wherever
+// it's shown to others — see MbtiBadge.
+const MBTI_TYPES: { code: string; nickname: string }[] = [
+  { code: "INTJ", nickname: "Architect" },
+  { code: "INTP", nickname: "Logician" },
+  { code: "ENTJ", nickname: "Commander" },
+  { code: "ENTP", nickname: "Debater" },
+  { code: "INFJ", nickname: "Advocate" },
+  { code: "INFP", nickname: "Mediator" },
+  { code: "ENFJ", nickname: "Protagonist" },
+  { code: "ENFP", nickname: "Campaigner" },
+  { code: "ISTJ", nickname: "Logistician" },
+  { code: "ISFJ", nickname: "Defender" },
+  { code: "ESTJ", nickname: "Executive" },
+  { code: "ESFJ", nickname: "Consul" },
+  { code: "ISTP", nickname: "Virtuoso" },
+  { code: "ISFP", nickname: "Adventurer" },
+  { code: "ESTP", nickname: "Entrepreneur" },
+  { code: "ESFP", nickname: "Entertainer" },
+];
+const MBTI_LOOKUP: Record<string, { nickname: string }> = Object.fromEntries(MBTI_TYPES.map((t) => [t.code, t]));
+
+function mbtiTypeUrl(code: string) {
+  return `https://www.16personalities.com/${code.toLowerCase()}-personality`;
+}
+
+function MbtiBadge({ code, variant = "full" }: { code: string; variant?: "full" | "compact" }) {
+  const upper = code.trim().toUpperCase();
+  const info = MBTI_LOOKUP[upper];
+  return (
+    <a
+      className={"mbti-badge" + (variant === "compact" ? " mbti-badge-compact" : "")}
+      href={mbtiTypeUrl(upper)}
+      target="_blank"
+      rel="noreferrer noopener"
+      title={info ? `${upper} — ${info.nickname}` : upper}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <svg className="mbti-badge-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3l2.4 5.8L20 11l-5.6 2.2L12 19l-2.4-5.8L4 11l5.6-2.2z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>
+      <span className="mbti-badge-code">{upper}</span>
+      {variant === "full" && info && <span className="mbti-badge-name">{info.nickname}</span>}
+    </a>
+  );
 }
 
 interface StepDef {
@@ -37,7 +93,14 @@ const STEPS: StepDef[] = [
       { key: "experience", label: "Background", kind: "text", placeholder: "e.g. 8 years in product design, 3 leading a team" },
       { key: "knownFor", label: "What people can count on you for", kind: "textarea", placeholder: "e.g. Turning messy problems into clear plans, and following through." },
       { key: "careAbout", label: "What you care about in your work", kind: "textarea", placeholder: "e.g. Craft, honest feedback, and making the team look good." },
-      { key: "mbtiType", label: "Myers-Briggs type (optional)", kind: "text", placeholder: "e.g. INTJ — don't know it? skip this, or look it up at 16personalities.com" },
+      {
+        key: "mbtiType",
+        label: "Myers-Briggs type (optional)",
+        kind: "select",
+        options: MBTI_TYPES.map((t) => t.code),
+        optionLabel: (code) => (MBTI_LOOKUP[code] ? `${code} — ${MBTI_LOOKUP[code].nickname}` : code),
+        helperLink: { label: "Don't know yours? Take the free test", href: "https://www.16personalities.com/free-personality-test" },
+      },
     ],
   },
   {
@@ -120,10 +183,6 @@ const REVIEW_GROUPS: { heading: string; rows: { key: string; label: string }[] }
       { key: "knownFor", label: "What people can count on me for" },
       { key: "careAbout", label: "What I care about" },
     ],
-  },
-  {
-    heading: "Personality",
-    rows: [{ key: "mbtiType", label: "Myers-Briggs type" }],
   },
   {
     heading: "How I Communicate",
@@ -400,7 +459,20 @@ function ManualBody({ values, mode }: { values: Values; mode: "detailed" | "onep
           <ReviewSection heading="The Essentials" rows={essentials} />
         </>
       ) : (
-        sections.map((s) => <ReviewSection key={s.heading} heading={s.heading} rows={s.items} />)
+        sections.map((s) => (
+          <Fragment key={s.heading}>
+            <ReviewSection heading={s.heading} rows={s.items} />
+            {s.heading === "About Me" && isFilled(values.mbtiType) && (
+              <div className="review-section">
+                <h3 className="review-heading">Personality</h3>
+                <div className="review-row">
+                  <div className="review-label">Myers-Briggs type</div>
+                  <MbtiBadge code={values.mbtiType} />
+                </div>
+              </div>
+            )}
+          </Fragment>
+        ))
       )}
       {hasTags && (
         <div className="review-section">
@@ -444,7 +516,7 @@ function ReviewSection({ heading, rows }: { heading: string; rows: { label: stri
 // ---------- main app ----------
 
 type TeamSummary = { id: string; name: string; invite_code: string; joined_at: string; is_owner: boolean };
-type RosterRow = { user_id: string; email: string; name: string | null; joined_at: string; has_manual: boolean; is_owner: boolean };
+type RosterRow = { user_id: string; email: string; name: string | null; mbti_type: string | null; joined_at: string; has_manual: boolean; is_owner: boolean };
 
 // ---------- team working agreement (Phase 3) ----------
 
@@ -1107,6 +1179,26 @@ export default function Home() {
         </div>
       );
     }
+    if (f.kind === "select") {
+      return (
+        <div className="field" key={f.key}>
+          <label htmlFor={id}>{f.label}</label>
+          <select id={id} value={raw} onChange={(e) => setField(f.key, e.target.value)}>
+            <option value="">Select…</option>
+            {f.options!.map((opt) => (
+              <option key={opt} value={opt}>
+                {f.optionLabel ? f.optionLabel(opt) : opt}
+              </option>
+            ))}
+          </select>
+          {f.helperLink && (
+            <a className="field-helper-link" href={f.helperLink.href} target="_blank" rel="noreferrer noopener">
+              {f.helperLink.label} →
+            </a>
+          )}
+        </div>
+      );
+    }
     // segmented
     return (
       <div className="field" key={f.key}>
@@ -1468,10 +1560,11 @@ export default function Home() {
                 const canView = m.has_manual && m.user_id !== authUser?.id;
                 const rowContent = (
                   <>
-                    <span className="roster-email">
+                    <span className="roster-email" style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       {m.name?.trim() || m.email}
                       {m.user_id === authUser?.id ? " (you)" : ""}
-                      {m.is_owner && <span className="tag" style={{ marginLeft: 8 }}>Owner</span>}
+                      {m.is_owner && <span className="tag">Owner</span>}
+                      {m.mbti_type && <MbtiBadge code={m.mbti_type} variant="compact" />}
                     </span>
                     <span className={"roster-badge" + (m.has_manual ? " roster-badge-done" : "")}>
                       {m.has_manual ? "Manual added" : "No manual yet"}
