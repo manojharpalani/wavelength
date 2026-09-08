@@ -5,6 +5,14 @@ reasoning, so the "why" survives past whoever made the call. Append new
 entries at the top; don't rewrite history — if a decision gets reversed,
 add a new entry that supersedes it and note what changed.
 
+## 2026-09-08 — Hidden background-audio widget replaced with an on-demand, visible video
+
+**Decision:** `AudioToggle` — which imperatively loaded the YouTube IFrame API and autoplayed a hidden, off-screen 2×2px video the instant the page loaded, for background music only — is gone. In its place, `VideoToggle` (same component, same nav slot everywhere the wordmark appears) opens a modal containing a plain, visible YouTube `<iframe>` embed for a new video (`HOME_VIDEO_ID`). Nothing loads or plays until a member clicks the button and then the video's own play control; there's no autoplay parameter and no imperative player API at all — a standard embed handles play/pause/fullscreen itself.
+
+**Why:** asked directly — the previous widget played audio automatically on every page load without asking, which is what a "background audio" toggle by definition does; the ask was to make it an actual video the member opts into. Dropping the imperative IFrame-API/script-tag machinery in favor of a plain iframe is also a real simplification (no `window.onYouTubeIframeAPIReady`, no player ref, no `declare global` typing for `window.YT`) — the old approach only existed to get a *hidden, headless, autoplaying* audio track, which a click-to-open visible embed doesn't need.
+
+**Reused instead of rebuilt:** the video modal reuses the existing `.preview-backdrop`/`.preview-modal` styling already used by the sample-preview and auth modals, rather than introducing new modal chrome.
+
 ## 2026-09-08 — Myers-Briggs becomes a dropdown with a link to the free test; type shown as a badge, not our own artwork
 
 **Decision:** The "About You" Myers-Briggs field changed from free text to a `select` dropdown of the 16 types (value = the 4-letter code; the visible option text adds the type's common nickname, e.g. "INTJ — Architect"), with a "Don't know yours? Take the free test" link to `https://www.16personalities.com/free-personality-test` shown underneath. Once set, the type renders as a small badge (`MbtiBadge` in `app/page.tsx`) — an in-house pill with a generic icon, the code, and (in its full variant) the nickname — linking out to `https://www.16personalities.com/<code>-personality`. The badge appears in the "Personality" section of the detailed manual (self view and the read-only teammate-manual view, since both share `ManualBody`) and, in a compact code-only variant, next to a member's name on the team roster.

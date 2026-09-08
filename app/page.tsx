@@ -327,85 +327,38 @@ function LogoMark({ className = "logo-mark" }: { className?: string }) {
   );
 }
 
-declare global {
-  interface Window {
-    onYouTubeIframeAPIReady?: () => void;
-    YT?: {
-      Player: new (
-        el: HTMLElement,
-        opts: {
-          height: string;
-          width: string;
-          videoId: string;
-          playerVars: Record<string, number>;
-          events: {
-            onReady: () => void;
-            onStateChange: (e: { data: number }) => void;
-          };
-        }
-      ) => { playVideo: () => void; pauseVideo: () => void };
-    };
-  }
-}
+// A small "watch" button (in the same nav spot the background-audio
+// toggle used to occupy — see docs/DECISIONS.md) that opens a modal with
+// a real, visible YouTube embed. Nothing loads or plays until the member
+// clicks both the button and the video's own play control — no autoplay,
+// no imperative IFrame API, just a standard iframe embed.
+const HOME_VIDEO_ID = "I2Do309e4YU";
 
-function AudioToggle() {
-  const [playing, setPlaying] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<{ playVideo: () => void; pauseVideo: () => void } | null>(null);
-
-  useEffect(() => {
-    function createPlayer() {
-      if (!containerRef.current || !window.YT) return;
-      playerRef.current = new window.YT.Player(containerRef.current, {
-        height: "2",
-        width: "2",
-        videoId: "fIgfO9gD5GY",
-        playerVars: { autoplay: 1, controls: 0, disablekb: 1, modestbranding: 1, rel: 0, playsinline: 1 },
-        events: {
-          onReady: () => playerRef.current?.playVideo(),
-          onStateChange: (e) => setPlaying(e.data === 1),
-        },
-      });
-    }
-
-    if (window.YT) {
-      createPlayer();
-    } else {
-      const prev = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
-        prev?.();
-        createPlayer();
-      };
-      if (!document.getElementById("yt-iframe-api")) {
-        const tag = document.createElement("script");
-        tag.id = "yt-iframe-api";
-        tag.src = "https://www.youtube.com/iframe_api";
-        document.body.appendChild(tag);
-      }
-    }
-  }, []);
-
+function VideoToggle() {
+  const [open, setOpen] = useState(false);
   return (
     <>
-      <button
-        type="button"
-        className="audio-toggle"
-        aria-label={playing ? "Pause background music" : "Play background music"}
-        onClick={() => {
-          if (!playerRef.current) return;
-          if (playing) playerRef.current.pauseVideo();
-          else playerRef.current.playVideo();
-        }}
-      >
-        {playing ? (
-          <svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" fill="currentColor" /><rect x="14" y="5" width="4" height="14" fill="currentColor" /></svg>
-        ) : (
-          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
-        )}
+      <button type="button" className="video-toggle" aria-label="Watch the video" onClick={() => setOpen(true)}>
+        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
       </button>
-      <div style={{ position: "fixed", left: "-9999px", top: "-9999px", width: 2, height: 2, overflow: "hidden" }}>
-        <div ref={containerRef} />
-      </div>
+      {open && (
+        <div className="preview-backdrop" onClick={() => setOpen(false)}>
+          <div className="preview-modal video-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="preview-modal-head">
+              <span className="kicker">Watch</span>
+              <button type="button" className="btn btn-ghost close-btn" onClick={() => setOpen(false)}>Close</button>
+            </div>
+            <div className="video-embed">
+              <iframe
+                src={`https://www.youtube.com/embed/${HOME_VIDEO_ID}`}
+                title="Wavelength"
+                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -1226,7 +1179,7 @@ export default function Home() {
           <div className="home-brand">
             <LogoMark />
             <span className="home-wordmark">Wavelength</span>
-            <AudioToggle />
+            <VideoToggle />
           </div>
           {renderAuthNav()}
         </div>
@@ -1288,7 +1241,7 @@ export default function Home() {
       <>
         <aside className="sidebar">
           <div className="sidebar-brand">
-            <LogoMark />Wavelength<AudioToggle />
+            <LogoMark />Wavelength<VideoToggle />
           </div>
           <p className="sidebar-tagline">A few honest details, so the people you work with don&apos;t have to guess.</p>
           {renderAuthNav()}
@@ -1392,7 +1345,7 @@ export default function Home() {
           <div className="home-brand">
             <LogoMark />
             <span className="home-wordmark">Wavelength</span>
-            <AudioToggle />
+            <VideoToggle />
           </div>
           {renderAuthNav()}
         </div>
@@ -1497,7 +1450,7 @@ export default function Home() {
           <div className="home-brand">
             <LogoMark />
             <span className="home-wordmark">Wavelength</span>
-            <AudioToggle />
+            <VideoToggle />
           </div>
           {renderAuthNav()}
         </div>
@@ -1886,7 +1839,7 @@ export default function Home() {
           <div className="home-brand">
             <LogoMark />
             <span className="home-wordmark">Wavelength</span>
-            <AudioToggle />
+            <VideoToggle />
           </div>
           {renderAuthNav()}
         </div>

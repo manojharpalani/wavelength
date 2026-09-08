@@ -135,8 +135,9 @@ Once a team exists (see Roadmap Phase 2/3 for how it got built):
   persistence" above) — the default, out-of-the-box experience is still
   fully client-side with nothing saved.
 - Works without JavaScript-dependent tracking; the only third-party network
-  dependencies are the AI call, the optional Supabase auth/DB calls, and
-  the YouTube iframe API for optional background audio.
+  dependencies are the AI call, the optional Supabase auth/DB calls, and a
+  YouTube embed for an optional video, opened only if a member clicks to
+  watch it (no autoplay).
 - Deployed as a single Vercel project (`soul-map-ai/wavelength`).
 
 ## Explicitly out of scope (for now)

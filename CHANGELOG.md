@@ -17,6 +17,10 @@ when it's deployed to production.
   member's name on the team roster. The badge is Wavelength's own design,
   not 16personalities' artwork. Requires the new `get_team_roster` in
   `supabase/migrations/20260908130000_roster_mbti.sql`.
+- Changed: replaced the hidden, autoplaying background-audio widget with
+  an on-demand, visible video — the same nav button now opens a modal with
+  a plain YouTube embed that only loads/plays once a member clicks into
+  it; nothing plays automatically on page load anymore.
 
 ## 2026-09-08
 

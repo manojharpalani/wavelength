@@ -68,10 +68,13 @@ one client component:
   (rendered inline in the UI, not thrown) when `ANTHROPIC_API_KEY` is
   unset — preserve that graceful-degradation behavior rather than erroring
   the page.
-- **Audio widget** (`AudioToggle` in `page.tsx`) — loads the YouTube iframe
-  API imperatively (script tag + `window.onYouTubeIframeAPIReady`) and
-  plays a hidden, off-screen video for background audio only. The video ID
-  is hardcoded (`fIgfO9gD5GY`); swap it there to change the track.
+- **Video widget** (`VideoToggle` in `page.tsx`) — a small button (same
+  nav slot across every "brand row": home, wizard, teams, agreement) that
+  opens a modal with a plain, visible YouTube `<iframe>` embed. Nothing
+  loads or autoplays until the member clicks the button and then presses
+  play themselves — no imperative IFrame API, no hidden player. The video
+  ID is the `HOME_VIDEO_ID` constant right above it; swap it there to
+  change the video.
 - **`lib/supabase/{client,server,config}.ts`, `middleware.ts`,
   `app/auth/callback/route.ts`** — optional accounts + persistence.
   `config.ts`'s `isSupabaseConfigured()` gates everything: with
