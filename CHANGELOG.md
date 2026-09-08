@@ -7,6 +7,31 @@ when it's deployed to production.
 
 ## [Unreleased]
 
+- Added: signing in now routes a member straight into the wizard's "About
+  You" step (name + profile) whenever their personal manual comes back
+  empty — a one-time nudge per sign-in, not a hard requirement; the nav
+  stays reachable and nothing else is gated on having a name or a
+  completed manual.
+- Added: the team roster, "Everyone's answers," the "Assemble with AI"
+  ownership note, and the finalized-agreement byline all now show a
+  member's name (from their personal manual's "Your name" field) instead
+  of their raw email address, falling back to email for anyone who hasn't
+  reached that field yet. Requires the new `get_team_roster`,
+  `get_team_agreement_responses`, and `get_agreement_status` in
+  `supabase/migrations/20260908120000_member_names.sql`.
+- Changed: re-centered the home page on the team working agreement instead
+  of the solo personal manual — new hero headline/subtitle, the primary
+  CTA now opens Teams (the personal manual moved to the secondary
+  button), the "why it matters" cards lead with collaboration, and the
+  sample-preview dialog now opens on the "Team agreement" pill by default
+  (reordered ahead of One-pager/Detailed). `README.md` and
+  `docs/REQUIREMENTS.md` reframed to match.
+- Added: a real favicon and Open Graph/Twitter card image (previously
+  entirely missing — no `public/` directory or logo file existed in this
+  repo) via Next.js's file-based `app/icon.tsx` / `app/opengraph-image.tsx`
+  conventions, rendering the existing inline logo squiggle rather than a
+  new visual asset.
+
 ## 2026-09-08
 
 - Added: database schema is now applied via the Supabase CLI (`npx supabase db push`) instead of pasting SQL into the dashboard's SQL Editor — the five schema files moved into `supabase/migrations/` as ordinary timestamped migrations. One-time setup (`supabase login` + `supabase link`) is in the README; every future schema change is one command. See `docs/DECISIONS.md`.

@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+const title = "Wavelength";
+const description =
+  "Wavelength: build your team's shared working agreement together. Every teammate starts with a few honest answers about how they work — better trust, better collaboration, better relationships.";
+
 export const metadata: Metadata = {
-  title: "Wavelength",
-  description:
-    "Wavelength: build your personal working manual and your team's shared working agreement. Better trust, better collaboration, better relationships.",
+  metadataBase: new URL("https://wavelength-iota-two.vercel.app"),
+  title,
+  description,
+  openGraph: { title, description, type: "website" },
+  twitter: { card: "summary_large_image", title, description },
 };
 
 export default function RootLayout({

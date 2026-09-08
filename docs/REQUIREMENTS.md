@@ -6,21 +6,26 @@ the code does.
 
 ## Purpose
 
-A five-minute wizard that turns a person's honest, short answers into a
-shareable "how I work" manual, so teammates (new or existing) don't have to
-guess how to collaborate with them — and a place for a team to shape a
-shared Team Working Agreement together, once they're both part of the same
-journey.
+A place for a team to shape a shared Team Working Agreement together —
+what "done" means, how they communicate, how they handle on-call, and more.
+Every member's way in is a five-minute wizard that turns their own honest,
+short answers into a shareable "how I work" personal manual, so teammates
+(new or existing) don't have to guess how to collaborate with them; the
+team then shapes those individual answers into one agreement.
 
 ## Core flow
 
-1. **Home** — landing page explaining the product, with a primary CTA
-   ("Find your wavelength" / "Pick up where you left off" once the user has
-   started), a secondary "Start or join a team" CTA, and a sample-preview
-   dialog (One-pager / Detailed / Team agreement) so a first-time visitor
-   can see what both kinds of output look like before starting. "Teams" is
-   always in the nav when Supabase is configured, whether or not you're
-   signed in yet.
+1. **Home** — landing page centered on the team working agreement, with a
+   primary "Start or join a team" CTA, a secondary CTA for the personal
+   manual ("Find your wavelength" / "Pick up where you left off" once the
+   user has started), and a sample-preview dialog (Team agreement /
+   One-pager / Detailed, in that order) so a first-time visitor can see
+   what the output looks like before starting. "Teams" is always in the
+   nav when Supabase is configured, whether or not you're signed in yet.
+   When a signed-in member's manual is empty, signing in routes them
+   straight into the wizard's "About You" step (name + profile) as a
+   one-time nudge per sign-in — not a hard gate, the nav stays reachable
+   and nothing else is blocked on it (see "Accounts & persistence").
 2. **Wizard** — seven short form sections (About You, How You Communicate,
    How You Work, Feedback & Support, Values & Expectations, Strengths &
    Growth, A Few More Things), navigable via a sidebar with progress
@@ -75,6 +80,18 @@ When it's configured:
   reloads automatically on a later visit.
 - Signing in never clobbers an in-progress anonymous draft: the saved
   manual only loads if the current in-memory form is still empty.
+- If, after loading, a signed-in member's manual comes back empty, that
+  sign-in routes them straight to the wizard's "About You" step — where
+  "Your name" is the first field — so every member's name and profile
+  exist as soon as they've engaged with the product at all. This is a
+  one-time nudge per sign-in, not a hard requirement: it doesn't repeat
+  until the next sign-out/sign-in, and nothing else in the app is gated on
+  having a name or a completed manual.
+- There's no separate "name" field or table at the account/signup level —
+  a member's name is exactly what they type into the wizard's "Your name"
+  field, stored as part of their `personal_manuals.values`. The roster and
+  "Everyone's answers" show that name once it exists, falling back to
+  email for a member who hasn't reached that field yet.
 - Row-level security (see `supabase/migrations/20260828120000_accounts_and_manuals.sql`) restricts every direct
   read and write to the signed-in user's own row. Teammates can view
   (read-only) a completed manual belonging to someone on the same team,
@@ -89,8 +106,10 @@ Once a team exists (see Roadmap Phase 2/3 for how it got built):
   confirm); any non-owner member can leave. There's currently no way for
   the owner to leave without deleting the team, or to hand ownership to
   someone else — see "Explicitly out of scope."
-- The roster shows every member and whether they've completed their
-  personal manual; clicking a teammate who has one opens it read-only.
+- The roster shows every member by name (falling back to email if they
+  haven't filled in their manual's name field yet) and whether they've
+  completed their personal manual; clicking a teammate who has one opens
+  it read-only.
 - The Team Working Agreement is 8 shared questions. Each member answers
   privately first — each answer shows a save status ("Saving…" / "Saved
   ✓" / an error if it fails) and there's an explicit "Save my answers"

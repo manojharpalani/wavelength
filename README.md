@@ -1,10 +1,12 @@
 # Wavelength
 
-Wavelength helps a team understand each other faster. Each person builds a
-short "how I work" personal manual (a five-minute wizard, with an AI assist
-that polishes rough notes into clear first-person answers), and teams shape
-a shared Team Working Agreement together — what "done" means, how you
-review code, how you handle on-call, and more.
+Wavelength helps a team build a shared Team Working Agreement together —
+what "done" means, how you review code, how you handle on-call, and more.
+Every teammate starts by giving their name and a short "how I work"
+personal manual (a five-minute wizard, with an AI assist that polishes
+rough notes into clear first-person answers) — signing in walks a new
+member straight into it — then the team shapes those answers into one
+agreement.
 
 Accounts, saved manuals, and teams are all optional. Without any of it
 configured, Wavelength still works exactly as the original personal-manual

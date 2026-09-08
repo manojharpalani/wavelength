@@ -444,7 +444,7 @@ function ReviewSection({ heading, rows }: { heading: string; rows: { label: stri
 // ---------- main app ----------
 
 type TeamSummary = { id: string; name: string; invite_code: string; joined_at: string; is_owner: boolean };
-type RosterRow = { user_id: string; email: string; joined_at: string; has_manual: boolean; is_owner: boolean };
+type RosterRow = { user_id: string; email: string; name: string | null; joined_at: string; has_manual: boolean; is_owner: boolean };
 
 // ---------- team working agreement (Phase 3) ----------
 
@@ -461,7 +461,7 @@ const AGREEMENT_QUESTIONS: AgreementQuestion[] = [
   { key: "definitionOfDone", label: "What does \"done\" mean for our team?", placeholder: "e.g. Tests pass, docs updated, reviewed, and deployed — not just merged." },
 ];
 
-type AgreementResponseRow = { question_key: string; user_id: string; email: string; answer: string; updated_at: string };
+type AgreementResponseRow = { question_key: string; user_id: string; email: string; name: string | null; answer: string; updated_at: string };
 type AgreementDraftRow = { question_key: string; draft_text: string; updated_at: string; updated_by_email: string | null };
 
 // A finished-looking sample, shown in the "View a sample" preview — not
@@ -493,6 +493,7 @@ export default function Home() {
   const [authEmail, setAuthEmail] = useState("");
   const [authState, setAuthState] = useState<{ sending: boolean; sent: boolean; error?: string }>({ sending: false, sent: false });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onboardCheckedRef = useRef<string | null>(null);
 
   const [myTeams, setMyTeams] = useState<TeamSummary[]>([]);
   const [teamsLoaded, setTeamsLoaded] = useState(false);
@@ -520,7 +521,7 @@ export default function Home() {
   const [myResponses, setMyResponses] = useState<Record<string, string>>({});
   const [agreementResponses, setAgreementResponses] = useState<AgreementResponseRow[]>([]);
   const [agreementDraft, setAgreementDraft] = useState<Record<string, string>>({});
-  const [agreementStatus, setAgreementStatus] = useState<{ finalizedAt: string | null; finalizedByEmail: string | null }>({ finalizedAt: null, finalizedByEmail: null });
+  const [agreementStatus, setAgreementStatus] = useState<{ finalizedAt: string | null; finalizedByEmail: string | null; finalizedByName: string | null }>({ finalizedAt: null, finalizedByEmail: null, finalizedByName: null });
   const [synthesis, setSynthesis] = useState<Record<string, AssistState>>({});
   const responseSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const draftSaveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -576,13 +577,20 @@ export default function Home() {
     supabase.auth.getUser().then(({ data }) => setAuthUser(data.user ?? null));
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setAuthUser(session?.user ?? null);
-      if (!session?.user) setManualLoaded(false);
+      if (!session?.user) {
+        setManualLoaded(false);
+        onboardCheckedRef.current = null;
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
   // On sign-in, pull the saved manual — but only if there's nothing typed
-  // locally yet, so we never clobber an in-progress anonymous draft.
+  // locally yet, so we never clobber an in-progress anonymous draft. The
+  // first time we check a given sign-in and find no manual saved yet, nudge
+  // into the wizard's "About You" step (name + profile) — a one-time
+  // redirect per sign-in, not a hard gate: the nav stays reachable, and we
+  // never check again until the next sign-out/sign-in.
   useEffect(() => {
     if (!authUser) return;
     const supabase = getSupabaseBrowserClient();
@@ -598,6 +606,10 @@ export default function Home() {
         const saved = (data?.values as Values) || {};
         setValues((current) => (Object.values(current).some(isFilled) ? current : saved));
         setManualLoaded(true);
+        if (onboardCheckedRef.current !== authUser.id) {
+          onboardCheckedRef.current = authUser.id;
+          if (!Object.values(saved).some(isFilled)) setView("wizard");
+        }
       });
     return () => {
       cancelled = true;
@@ -657,7 +669,7 @@ export default function Home() {
     setMyResponses({});
     setAgreementResponses([]);
     setAgreementDraft({});
-    setAgreementStatus({ finalizedAt: null, finalizedByEmail: null });
+    setAgreementStatus({ finalizedAt: null, finalizedByEmail: null, finalizedByName: null });
   }
 
   async function loadMyTeams() {
@@ -877,8 +889,8 @@ export default function Home() {
     });
     setAgreementDraft(draftMap);
 
-    const statusRow = Array.isArray(status.data) && status.data.length > 0 ? (status.data[0] as { finalized_at: string | null; finalized_by_email: string | null }) : null;
-    setAgreementStatus({ finalizedAt: statusRow?.finalized_at ?? null, finalizedByEmail: statusRow?.finalized_by_email ?? null });
+    const statusRow = Array.isArray(status.data) && status.data.length > 0 ? (status.data[0] as { finalized_at: string | null; finalized_by_email: string | null; finalized_by_name: string | null }) : null;
+    setAgreementStatus({ finalizedAt: statusRow?.finalized_at ?? null, finalizedByEmail: statusRow?.finalized_by_email ?? null, finalizedByName: statusRow?.finalized_by_name ?? null });
 
     setAgreementLoading(false);
   }
@@ -912,9 +924,10 @@ export default function Home() {
     // Keep the "everyone's answers" tab in sync with what we just saved.
     setAgreementResponses((rows) => {
       const email = authUser?.email || "";
+      const name = isFilled(values.name) ? values.name.trim() : null;
       const others = rows.filter((r) => !(r.question_key === key && r.user_id === authUser?.id));
       if (!val.trim()) return others;
-      return [...others, { question_key: key, user_id: authUser?.id || "", email, answer: val, updated_at: new Date().toISOString() }];
+      return [...others, { question_key: key, user_id: authUser?.id || "", email, name, answer: val, updated_at: new Date().toISOString() }];
     });
   }
 
@@ -927,7 +940,7 @@ export default function Home() {
 
   function setAgreementDraftText(key: string, val: string) {
     setAgreementDraft((d) => ({ ...d, [key]: val }));
-    setAgreementStatus({ finalizedAt: null, finalizedByEmail: null });
+    setAgreementStatus({ finalizedAt: null, finalizedByEmail: null, finalizedByName: null });
     if (!activeTeam) return;
     const teamId = activeTeam.id;
     clearTimeout(draftSaveTimers.current[key]);
@@ -1017,7 +1030,9 @@ export default function Home() {
       return;
     }
     setAgreementStatus(
-      finalized ? { finalizedAt: new Date().toISOString(), finalizedByEmail: authUser?.email ?? null } : { finalizedAt: null, finalizedByEmail: null }
+      finalized
+        ? { finalizedAt: new Date().toISOString(), finalizedByEmail: authUser?.email ?? null, finalizedByName: isFilled(values.name) ? values.name.trim() : null }
+        : { finalizedAt: null, finalizedByEmail: null, finalizedByName: null }
     );
   }
 
@@ -1126,32 +1141,32 @@ export default function Home() {
 
         <section className="hero">
           <h1 className="hero-title">
-            Understand each other,
+            Build your team&apos;s
             <br />
-            <span style={{ color: "var(--accent)" }}>work better together</span>.
+            <span style={{ color: "var(--accent)" }}>shared working agreement</span>.
           </h1>
           <p className="hero-subtitle">
-            Build your personal manual, then bring your team into a shared working agreement — a few honest answers at a time.
+            Every teammate starts with a few honest answers about how they work, then you shape it into one agreement together.
           </p>
           <div className="hero-actions">
-            <button type="button" className="btn btn-primary" onClick={() => setView("wizard")}>{ctaLabel}</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setView("teams")}>Start or join a team</button>
+            <button type="button" className="btn btn-primary" onClick={() => setView("teams")}>Start or join a team</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setView("wizard")}>{ctaLabel}</button>
           </div>
-          <button type="button" className="btn btn-ghost hero-sample-link" onClick={() => setPreviewOpen("onepager")}>View a sample</button>
+          <button type="button" className="btn btn-ghost hero-sample-link" onClick={() => setPreviewOpen("agreement")}>View a sample</button>
         </section>
 
         <section className="vision-section">
           <span className="section-eyebrow">Why it matters</span>
           <div className="benefits-grid">
             <div className="benefit-card">
+              <div className="benefit-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6.5" strokeWidth="1.6" /><circle cx="15" cy="12" r="6.5" strokeWidth="1.6" /></svg></div>
+              <h3>Stronger Collaboration</h3>
+              <p>Everyone knows the plan, not just their part of it.</p>
+            </div>
+            <div className="benefit-card">
               <div className="benefit-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" strokeWidth="1.6" /><path d="M8 12.3l2.6 2.6L16 9" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
               <h3>Better Trust</h3>
               <p>Grows faster when there&apos;s nothing to guess.</p>
-            </div>
-            <div className="benefit-card">
-              <div className="benefit-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="12" r="6.5" strokeWidth="1.6" /><circle cx="15" cy="12" r="6.5" strokeWidth="1.6" /></svg></div>
-              <h3>Stronger Collaboration</h3>
-              <p>Less friction, better & faster synergy.</p>
             </div>
             <div className="benefit-card">
               <div className="benefit-icon"><svg viewBox="0 0 24 24"><path d="M5.5 15.5a9 9 0 0 1 13 0" strokeWidth="1.6" strokeLinecap="round" /><path d="M8.3 18a5 5 0 0 1 7.4 0" strokeWidth="1.6" strokeLinecap="round" /><circle cx="12" cy="20" r="1.1" stroke="none" fill="currentColor" /></svg></div>
@@ -1454,7 +1469,7 @@ export default function Home() {
                 const rowContent = (
                   <>
                     <span className="roster-email">
-                      {m.email}
+                      {m.name?.trim() || m.email}
                       {m.user_id === authUser?.id ? " (you)" : ""}
                       {m.is_owner && <span className="tag" style={{ marginLeft: 8 }}>Owner</span>}
                     </span>
@@ -1612,7 +1627,7 @@ export default function Home() {
                   {rows.map((r) => (
                     <div className="agreement-answer-row" key={r.user_id}>
                       <span className="roster-email">
-                        {r.email}
+                        {r.name?.trim() || r.email}
                         {r.user_id === authUser?.id ? " (you)" : ""}
                       </span>
                       <p className="review-value" style={{ margin: "4px 0 0" }}>{r.answer}</p>
@@ -1650,7 +1665,7 @@ export default function Home() {
           <div className="agreement-finalize agreement-finalize-top">
             <p className="step-subtitle" style={{ marginBottom: 0 }}>
               Finalized {new Date(agreementStatus.finalizedAt as string).toLocaleDateString()}
-              {agreementStatus.finalizedByEmail ? ` by ${agreementStatus.finalizedByEmail}` : ""}. It&apos;s read-only until someone edits it.
+              {agreementStatus.finalizedByName || agreementStatus.finalizedByEmail ? ` by ${agreementStatus.finalizedByName || agreementStatus.finalizedByEmail}` : ""}. It&apos;s read-only until someone edits it.
             </p>
             <div className="agreement-finalize-actions">
               <button type="button" className="btn btn-secondary" onClick={() => window.print()}>Print / Save as PDF</button>
@@ -1687,7 +1702,7 @@ export default function Home() {
                 ? totalAnswered > 0
                   ? `Draft all ${totalAnswered} question${totalAnswered === 1 ? "" : "s"} with teammate answers in one go — you can edit anything after.`
                   : "Nothing to assemble yet — wait for teammates to answer a few questions first."
-                : `Only ${ownerRow ? ownerRow.email : "the team owner"} can assemble the whole draft at once — you can still draft or edit any question yourself below.`}
+                : `Only ${ownerRow ? ownerRow.name?.trim() || ownerRow.email : "the team owner"} can assemble the whole draft at once — you can still draft or edit any question yourself below.`}
             </p>
             {assembleState.loading && (
               <p className="step-subtitle" style={{ marginBottom: 0, marginTop: 6 }}>Assembling {assembleState.done} of {assembleState.total}…</p>
@@ -1788,7 +1803,7 @@ export default function Home() {
           <h1 className="step-title" style={{ marginTop: 16, marginBottom: 8 }}>Team Working Agreement</h1>
           <p className="step-subtitle" style={{ marginBottom: 20 }}>
             {agreementStatus.finalizedAt
-              ? `Finalized ${new Date(agreementStatus.finalizedAt).toLocaleDateString()}${agreementStatus.finalizedByEmail ? ` by ${agreementStatus.finalizedByEmail}` : ""}.`
+              ? `Finalized ${new Date(agreementStatus.finalizedAt).toLocaleDateString()}${agreementStatus.finalizedByName || agreementStatus.finalizedByEmail ? ` by ${agreementStatus.finalizedByName || agreementStatus.finalizedByEmail}` : ""}.`
               : "Answer honestly, see how the team compares, then shape it into one shared agreement."}
           </p>
 
@@ -1831,9 +1846,9 @@ export default function Home() {
               : "Just a glimpse of what's possible — your own words will live here soon enough."}
           </p>
           <div className="pill-group" style={{ marginBottom: 26 }}>
+            <button type="button" className={"pill" + (previewOpen === "agreement" ? " selected" : "")} onClick={() => setPreviewOpen("agreement")}>Team agreement</button>
             <button type="button" className={"pill" + (previewOpen === "onepager" ? " selected" : "")} onClick={() => setPreviewOpen("onepager")}>One-pager</button>
             <button type="button" className={"pill" + (previewOpen === "detailed" ? " selected" : "")} onClick={() => setPreviewOpen("detailed")}>Detailed</button>
-            <button type="button" className={"pill" + (previewOpen === "agreement" ? " selected" : "")} onClick={() => setPreviewOpen("agreement")}>Team agreement</button>
           </div>
           {isAgreement ? (
             <ReviewSection heading="How We Work" rows={AGREEMENT_QUESTIONS.map((q) => ({ label: q.label, value: SAMPLE_AGREEMENT[q.key] }))} />
