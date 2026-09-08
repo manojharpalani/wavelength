@@ -7,6 +7,7 @@ when it's deployed to production.
 
 ## [Unreleased]
 
+- **Fixed: the last edit to a personal manual could be silently lost if the tab was closed right after typing.** Autosave debounces 900ms after the last keystroke before writing to Supabase; closing or backgrounding the tab inside that window dropped the pending save with no warning. Now flushed immediately on `visibilitychange`/`pagehide`. Found while investigating a report of a manual "not saving" (the manual itself was saved — see the invite-link fix below for what that report actually was — but this was a real, separate gap turned up along the way).
 - **Fixed: signing in via a team invite link (`?join=CODE`) silently stranded the invited person in the wizard and they never actually joined the team.** The onboarding nudge added earlier this session raced with the invite-pickup logic and always won (it resolves after two network round-trips, after the invite flow had already set the view to the Teams hub), overwriting it back to the wizard — so `join_team_by_code` never ran. The person could fill out a complete personal manual and never show up on the roster, never be browsable by teammates, and never be able to answer working-agreement questions, with no error shown anywhere. Fixed by having the nudge check for a pending `?join=` link and step aside if one's present. See `docs/DECISIONS.md`.
 - Changed: the video (see below) moved from a click-to-open modal to
   sitting inline on the home page itself, between the hero and "why it

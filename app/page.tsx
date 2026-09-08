@@ -503,6 +503,7 @@ export default function Home() {
   const [authEmail, setAuthEmail] = useState("");
   const [authState, setAuthState] = useState<{ sending: boolean; sent: boolean; error?: string }>({ sending: false, sent: false });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const valuesRef = useRef(values);
   const onboardCheckedRef = useRef<string | null>(null);
 
   const [myTeams, setMyTeams] = useState<TeamSummary[]>([]);
@@ -633,6 +634,13 @@ export default function Home() {
     };
   }, [authUser]);
 
+  // Keep a ref mirror of `values` so the flush-on-hide effect below (which
+  // only wants to run once per sign-in, not on every keystroke) can always
+  // see the latest draft without listing `values` in its own deps.
+  useEffect(() => {
+    valuesRef.current = values;
+  }, [values]);
+
   // Debounced autosave once signed in and the initial load has settled.
   useEffect(() => {
     if (!authUser || !manualLoaded) return;
@@ -640,6 +648,7 @@ export default function Home() {
     if (!supabase) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
       supabase
         .from("personal_manuals")
         .upsert({ user_id: authUser.id, values, updated_at: new Date().toISOString() })
@@ -652,6 +661,39 @@ export default function Home() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [values, authUser, manualLoaded]);
+
+  // The 900ms debounce above drops its last edit if the tab is closed or
+  // backgrounded before the timer fires — someone types a final change and
+  // immediately closes the tab, and it's silently never saved. Flush any
+  // pending save on visibilitychange/pagehide (the recommended point to
+  // save-before-leaving — more reliable than "beforeunload", which some
+  // browsers throttle or skip for async work).
+  useEffect(() => {
+    if (!authUser || !manualLoaded) return;
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    const userId = authUser.id;
+    const flushPendingSave = () => {
+      if (!saveTimer.current) return;
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+      supabase
+        .from("personal_manuals")
+        .upsert({ user_id: userId, values: valuesRef.current, updated_at: new Date().toISOString() })
+        .then(({ error }) => {
+          if (error) console.error("Wavelength: autosave flush failed", error);
+        });
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushPendingSave();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", flushPendingSave);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", flushPendingSave);
+    };
+  }, [authUser, manualLoaded]);
 
   async function sendMagicLink() {
     const supabase = getSupabaseBrowserClient();
