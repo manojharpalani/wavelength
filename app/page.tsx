@@ -327,39 +327,24 @@ function LogoMark({ className = "logo-mark" }: { className?: string }) {
   );
 }
 
-// A small "watch" button (in the same nav spot the background-audio
-// toggle used to occupy — see docs/DECISIONS.md) that opens a modal with
-// a real, visible YouTube embed. Nothing loads or plays until the member
-// clicks both the button and the video's own play control — no autoplay,
-// no imperative IFrame API, just a standard iframe embed.
+// Embedded directly in the home page (see docs/DECISIONS.md) — a plain,
+// visible YouTube iframe, not a hidden/autoplaying player. Nothing plays
+// until a visitor presses the embed's own play control; there's no
+// autoplay parameter and no imperative IFrame API.
 const HOME_VIDEO_ID = "I2Do309e4YU";
 
-function VideoToggle() {
-  const [open, setOpen] = useState(false);
+function HomeVideoEmbed() {
   return (
-    <>
-      <button type="button" className="video-toggle" aria-label="Watch the video" onClick={() => setOpen(true)}>
-        <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" /></svg>
-      </button>
-      {open && (
-        <div className="preview-backdrop" onClick={() => setOpen(false)}>
-          <div className="preview-modal video-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="preview-modal-head">
-              <span className="kicker">Watch</span>
-              <button type="button" className="btn btn-ghost close-btn" onClick={() => setOpen(false)}>Close</button>
-            </div>
-            <div className="video-embed">
-              <iframe
-                src={`https://www.youtube.com/embed/${HOME_VIDEO_ID}`}
-                title="Wavelength"
-                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                allowFullScreen
-              />
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    <section className="video-section">
+      <div className="video-embed">
+        <iframe
+          src={`https://www.youtube.com/embed/${HOME_VIDEO_ID}`}
+          title="Wavelength"
+          allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+        />
+      </div>
+    </section>
   );
 }
 
@@ -1179,7 +1164,6 @@ export default function Home() {
           <div className="home-brand">
             <LogoMark />
             <span className="home-wordmark">Wavelength</span>
-            <VideoToggle />
           </div>
           {renderAuthNav()}
         </div>
@@ -1199,6 +1183,8 @@ export default function Home() {
           </div>
           <button type="button" className="btn btn-ghost hero-sample-link" onClick={() => setPreviewOpen("agreement")}>View a sample</button>
         </section>
+
+        <HomeVideoEmbed />
 
         <section className="vision-section">
           <span className="section-eyebrow">Why it matters</span>
@@ -1241,7 +1227,7 @@ export default function Home() {
       <>
         <aside className="sidebar">
           <div className="sidebar-brand">
-            <LogoMark />Wavelength<VideoToggle />
+            <LogoMark />Wavelength
           </div>
           <p className="sidebar-tagline">A few honest details, so the people you work with don&apos;t have to guess.</p>
           {renderAuthNav()}
@@ -1345,7 +1331,6 @@ export default function Home() {
           <div className="home-brand">
             <LogoMark />
             <span className="home-wordmark">Wavelength</span>
-            <VideoToggle />
           </div>
           {renderAuthNav()}
         </div>
@@ -1450,7 +1435,6 @@ export default function Home() {
           <div className="home-brand">
             <LogoMark />
             <span className="home-wordmark">Wavelength</span>
-            <VideoToggle />
           </div>
           {renderAuthNav()}
         </div>
@@ -1839,7 +1823,6 @@ export default function Home() {
           <div className="home-brand">
             <LogoMark />
             <span className="home-wordmark">Wavelength</span>
-            <VideoToggle />
           </div>
           {renderAuthNav()}
         </div>

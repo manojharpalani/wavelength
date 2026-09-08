@@ -5,6 +5,12 @@ reasoning, so the "why" survives past whoever made the call. Append new
 entries at the top; don't rewrite history — if a decision gets reversed,
 add a new entry that supersedes it and note what changed.
 
+## 2026-09-08 — Video moved from a click-to-open modal to inline on the home page (supersedes the entry directly below)
+
+**Decision:** The modal-based `VideoToggle` from earlier the same day (button in every "brand row" → opens a modal with the embed) was replaced with `HomeVideoEmbed` — a plain YouTube `<iframe>` sitting directly in the home page's layout, between the hero and "why it matters," always visible, nothing to click to reveal it. It no longer appears anywhere else (wizard, teams, agreement) — those nav rows are back to just the logo and wordmark. Autoplay is still off; a visitor presses the embed's own play control.
+
+**Why:** asked directly to embed it "in the home page itself inline" rather than behind a button. Confining it to the home page also reads better with this session's earlier team-first pivot — a promotional/explainer video belongs on the landing page, not following a member into the wizard or their team's working agreement.
+
 ## 2026-09-08 — Hidden background-audio widget replaced with an on-demand, visible video
 
 **Decision:** `AudioToggle` — which imperatively loaded the YouTube IFrame API and autoplayed a hidden, off-screen 2×2px video the instant the page loaded, for background music only — is gone. In its place, `VideoToggle` (same component, same nav slot everywhere the wordmark appears) opens a modal containing a plain, visible YouTube `<iframe>` embed for a new video (`HOME_VIDEO_ID`). Nothing loads or plays until a member clicks the button and then the video's own play control; there's no autoplay parameter and no imperative player API at all — a standard embed handles play/pause/fullscreen itself.

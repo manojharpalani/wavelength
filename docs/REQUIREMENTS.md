@@ -136,8 +136,8 @@ Once a team exists (see Roadmap Phase 2/3 for how it got built):
   fully client-side with nothing saved.
 - Works without JavaScript-dependent tracking; the only third-party network
   dependencies are the AI call, the optional Supabase auth/DB calls, and a
-  YouTube embed for an optional video, opened only if a member clicks to
-  watch it (no autoplay).
+  YouTube embed on the home page (no autoplay — a visitor presses play
+  themselves).
 - Deployed as a single Vercel project (`soul-map-ai/wavelength`).
 
 ## Explicitly out of scope (for now)

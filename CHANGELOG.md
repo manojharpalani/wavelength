@@ -7,6 +7,14 @@ when it's deployed to production.
 
 ## [Unreleased]
 
+- Changed: the video (see below) moved from a click-to-open modal to
+  sitting inline on the home page itself, between the hero and "why it
+  matters," always visible — no button to click to reveal it. It no
+  longer appears on any other view (wizard, teams, agreement); those nav
+  rows are back to just the logo and wordmark. Still no autoplay.
+
+## 2026-09-08
+
 - Changed: the "About You" Myers-Briggs field is now a dropdown of the 16
   types (option text shows the type's nickname, e.g. "INTJ — Architect")
   with a "Take the free test" link to 16personalities.com, instead of free
@@ -21,8 +29,6 @@ when it's deployed to production.
   an on-demand, visible video — the same nav button now opens a modal with
   a plain YouTube embed that only loads/plays once a member clicks into
   it; nothing plays automatically on page load anymore.
-
-## 2026-09-08
 
 - Added: signing in now routes a member straight into the wizard's "About
   You" step (name + profile) whenever their personal manual comes back
