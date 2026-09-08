@@ -5,6 +5,14 @@ reasoning, so the "why" survives past whoever made the call. Append new
 entries at the top; don't rewrite history — if a decision gets reversed,
 add a new entry that supersedes it and note what changed.
 
+## 2026-09-08 — Fixed: the onboarding nudge silently hijacked invite-link sign-ins, so invited members never actually joined a team
+
+**Bug:** the "About You" onboarding nudge added earlier the same day (see the entry below it) races with the existing `?join=CODE` invite-pickup effect. On mount, the invite effect synchronously sets `view` to `"teams"` so the invited person sees the "you've been invited" banner. The onboarding nudge, though, only resolves after two async round-trips (`auth.getUser()`, then a `personal_manuals` select) — so on a brand-new sign-in it always finishes *after* the invite effect and unconditionally calls `setView("wizard")`, overwriting `"teams"`. The invited person got swept into filling out their personal manual and never saw the join banner again; `join_team_by_code` never ran, so they never became a real `team_members` row — despite fully completing a manual. Confirmed against production data (with the account owner's explicit permission to query the linked Supabase project): two invited people had complete `personal_manuals` rows but zero `team_members` rows for the team they'd been invited to.
+
+**Fix:** the onboarding-nudge effect now checks `window.location.search` for a `join` param immediately before redirecting, and skips the wizard redirect if one is present — letting the pending invite flow finish first. Reads the live URL rather than component state, so there's no equivalent stale-closure risk.
+
+**Why this shape of fix:** the alternative (make the invite effect win by re-asserting `"teams"` after the nudge, e.g. with a ref/priority flag) would still leave two effects racing to set the same piece of state; checking intent before acting is simpler and removes the race outright. Confirmed that team-membership viewing itself (roster, teammate manuals via `get_team_member_manual`, and the shared agreement) was never owner-gated — every team member can already browse all of it; the reported symptom was entirely explained by the invited people never becoming members in the first place.
+
 ## 2026-09-08 — Video moved from a click-to-open modal to inline on the home page (supersedes the entry directly below)
 
 **Decision:** The modal-based `VideoToggle` from earlier the same day (button in every "brand row" → opens a modal with the embed) was replaced with `HomeVideoEmbed` — a plain YouTube `<iframe>` sitting directly in the home page's layout, between the hero and "why it matters," always visible, nothing to click to reveal it. It no longer appears anywhere else (wizard, teams, agreement) — those nav rows are back to just the logo and wordmark. Autoplay is still off; a visitor presses the embed's own play control.

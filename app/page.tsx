@@ -618,7 +618,14 @@ export default function Home() {
         setManualLoaded(true);
         if (onboardCheckedRef.current !== authUser.id) {
           onboardCheckedRef.current = authUser.id;
-          if (!Object.values(saved).some(isFilled)) setView("wizard");
+          // Don't hijack a pending "?join=CODE" invite link into the wizard —
+          // this used to fire after the invite-pickup effect had already set
+          // view to "teams", silently stranding invited members in the
+          // wizard and never letting them actually join. Let the join flow
+          // finish first; nothing stops them from filling in their manual
+          // afterward.
+          const hasJoinIntent = Boolean(new URLSearchParams(window.location.search).get("join"));
+          if (!Object.values(saved).some(isFilled) && !hasJoinIntent) setView("wizard");
         }
       });
     return () => {
