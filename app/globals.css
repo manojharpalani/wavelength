@@ -248,6 +248,89 @@ a:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
 .video-embed { position: relative; width: 100%; padding-top: 56.25%; border-radius: 14px; overflow: hidden; background: black; }
 .video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
+.app-loading { padding: 60px; color: var(--muted); font-size: 14.5px; }
+
+/* ---------- app shell — persistent nav for the logged-in app ---------- */
+.app-shell { display: flex; min-height: 100vh; width: 100%; }
+.app-shell-topbar { display: none; }
+.app-shell-nav { width: 240px; flex-shrink: 0; padding: 32px 20px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.app-shell-brand { display: flex; align-items: center; gap: 8px; font-family: 'Newsreader', Georgia, serif; font-size: 19px; font-weight: 600; color: var(--ink); text-decoration: none; margin-bottom: 28px; }
+.app-shell-brand-desktop { display: flex; }
+.app-shell-links { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+.app-shell-link { display: block; padding: 10px 12px; border-radius: 9px; font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none; }
+.app-shell-link:hover { background: color-mix(in oklch, var(--line) 60%, transparent); color: var(--ink); }
+.app-shell-link.active { background: color-mix(in oklch, var(--accent) 13%, white); color: var(--ink); font-weight: 600; }
+.app-shell-footer { display: flex; flex-direction: column; gap: 8px; padding-top: 16px; border-top: 1px solid var(--line); }
+.app-shell-email { font-size: 12px; color: var(--muted); word-break: break-all; }
+.app-shell-signout { background: none; border: none; color: var(--accent); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 0; text-align: left; }
+.app-shell-signout:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
+.app-shell-main { flex: 1; min-width: 0; overflow-y: auto; max-height: 100vh; padding: 40px 44px 56px; }
+.app-shell-menu-btn { display: none; }
+.app-shell-scrim { display: none; }
+
+@media (max-width: 760px) {
+  .app-shell { flex-direction: column; min-height: auto; }
+  .app-shell-topbar { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+  .app-shell-brand-desktop { display: none; }
+  .app-shell-menu-btn { display: flex; flex-direction: column; gap: 4px; background: none; border: none; padding: 8px; cursor: pointer; }
+  .app-shell-menu-btn span { width: 20px; height: 2px; background: var(--ink); border-radius: 1px; }
+  .app-shell-scrim { display: block; position: fixed; inset: 0; background: color-mix(in oklch, black 40%, transparent); z-index: 40; }
+  .app-shell-nav {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 50; width: 260px; background: var(--bg);
+    transform: translateX(-100%); transition: transform 0.2s ease; padding-top: 70px; overflow-y: auto;
+  }
+  .app-shell-nav.open { transform: translateX(0); }
+  .app-shell-main { padding: 24px 20px 40px; max-height: none; }
+}
+
+/* ---------- dashboard ---------- */
+.dashboard-hub { max-width: 880px; }
+.dashboard-section { margin-top: 36px; }
+.dashboard-section:first-of-type { margin-top: 28px; }
+.dashboard-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+
+.manual-summary-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 22px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.manual-summary-info { flex: 1; min-width: 200px; }
+.manual-summary-progress { display: flex; align-items: center; gap: 12px; }
+.manual-summary-progress-track { flex: 1; max-width: 220px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.manual-summary-progress-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+.dashboard-card-actions { display: flex; gap: 10px; flex-shrink: 0; }
+
+.empty-state-card { padding: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+.team-card { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.team-card-main { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px 14px; text-decoration: none; color: inherit; }
+.team-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.team-card-name { font-weight: 600; font-size: 15.5px; color: var(--ink); }
+.team-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--line); }
+.team-card-agreement-link { font-size: 12.5px; font-weight: 600; }
+
+.status-pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+.status-pill-muted { color: var(--muted); background: color-mix(in oklch, var(--line) 50%, transparent); }
+.status-pill-progress { color: color-mix(in oklch, var(--accent) 60%, black); background: color-mix(in oklch, var(--accent) 15%, white); }
+.status-pill-done { color: color-mix(in oklch, var(--accent) 55%, black); background: color-mix(in oklch, var(--accent) 20%, white); }
+
+/* ---------- avatars ---------- */
+.avatar { display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700; font-family: 'Newsreader', Georgia, serif; flex-shrink: 0; }
+
+/* ---------- profile header (my manual / teammate manual pages) ---------- */
+.profile-header { display: flex; align-items: center; gap: 18px; margin: 16px 0 20px; }
+
+.quick-edit-disclosure { margin-bottom: 28px; }
+.quick-edit-form { margin-top: 14px; padding: 18px 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; max-width: 420px; }
+.quick-edit-form .field { margin-bottom: 16px; }
+.quick-edit-form .field:last-child { margin-bottom: 0; }
+
+/* ---------- member grid (team roster) ---------- */
+.member-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 16px; }
+.member-card { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; text-decoration: none; color: inherit; }
+.member-card-clickable { cursor: pointer; }
+.member-card-clickable:hover { border-color: var(--line-strong); }
+.member-card-muted { opacity: 0.85; }
+.member-card-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.member-card-name { font-size: 14px; font-weight: 600; color: var(--ink); }
+
 .print-letterhead { display: none; }
 .print-footer { display: none; }
 
@@ -260,9 +343,13 @@ a:hover { color: color-mix(in oklch, var(--accent) 70%, black); }
   .app { display: block !important; background: white !important; }
   .main { padding: 0 !important; max-height: none !important; overflow: visible !important; }
   .card, .review-card { max-width: 100% !important; border: none !important; padding: 0 !important; }
+  .quick-edit-disclosure { display: none !important; }
 
-  .agreement-page .home-nav, .agreement-page .teams-hub { display: none !important; }
-  .agreement-page { overflow: visible !important; max-height: none !important; padding: 0 !important; align-items: stretch !important; }
+  .app-shell-nav, .app-shell-topbar, .app-shell-scrim { display: none !important; }
+  .app-shell { display: block !important; background: white !important; }
+  .app-shell-main { padding: 0 !important; max-height: none !important; overflow: visible !important; }
+
+  .agreement-page .teams-hub { display: none !important; }
   .agreement-print-view { display: block !important; width: 100%; max-width: 100%; }
 
   .print-letterhead {

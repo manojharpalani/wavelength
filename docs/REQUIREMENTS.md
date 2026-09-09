@@ -15,41 +15,62 @@ team then shapes those individual answers into one agreement.
 
 ## Core flow
 
-1. **Home** — landing page centered on the team working agreement, with a
-   primary "Start or join a team" CTA, a secondary CTA for the personal
-   manual ("Find your wavelength" / "Pick up where you left off" once the
-   user has started), and a sample-preview dialog (Team agreement /
-   One-pager / Detailed, in that order) so a first-time visitor can see
-   what the output looks like before starting. "Teams" is always in the
-   nav when Supabase is configured, whether or not you're signed in yet.
-   When a signed-in member's manual is empty, signing in routes them
-   straight into the wizard's "About You" step (name + profile) as a
-   one-time nudge per sign-in — not a hard gate, the nav stays reachable
-   and nothing else is blocked on it (see "Accounts & persistence").
-2. **Wizard** — seven short form sections (About You, How You Communicate,
-   How You Work, Feedback & Support, Values & Expectations, Strengths &
-   Growth, A Few More Things), navigable via a sidebar with progress
-   indication. Answers persist in memory for the session (not saved to a
-   backend). About You includes an optional, self-reported Myers-Briggs
-   type field — a dropdown of the 16 types (with a link to take the free
-   test at 16personalities.com for anyone who doesn't know theirs yet), no
-   in-app quiz (avoids MBTI licensing/IP concerns and the scope of
-   building a real typing instrument). Once set, it renders as its own
-   "Personality" section in the detailed manual (self view and, for
-   teammates, the read-only teammate-manual view) as a small badge — code
-   + nickname (e.g. "INTJ — Architect") — linking out to that type's page;
-   the same badge (code only) also appears next to a member's name on the
-   team roster. Omitted from the one-pager, hidden entirely when blank.
-3. **Your Manual (review step)** — renders the collected answers as a
-   document, toggle-able between a **Detailed** view (full sections) and a
-   **One-pager** view (quick facts + essentials only). Empty state shown if
-   nothing's filled in yet.
-4. **Export** — "Print / Save as PDF" opens the browser print dialog; the
-   printed/PDF output uses a distinct, professional layout: a Wavelength
-   letterhead (logo, "Personal Working Manual", date), no app chrome
-   (sidebar, nav, buttons all hidden), and a "Prepared with Wavelength"
-   footer. The same letterhead styling is reused for a finalized Team
-   Working Agreement.
+Wavelength is now two experiences on two kinds of routes: a marketing home
+page for signed-out visitors, and a real, routed app for signed-in members
+centered on their personal manual and their teams' working agreements (see
+Roadmap Phase 4). The wizard sits outside the signed-in app on purpose — it
+stays usable without an account.
+
+1. **Home (`/`, signed-out only)** — landing page centered on the team
+   working agreement, with a primary "Start or join a team" CTA, a
+   secondary "Find your wavelength" CTA into the wizard, and a
+   sample-preview dialog (Team agreement / One-pager / Detailed, in that
+   order) so a first-time visitor can see what the output looks like
+   before starting. A signed-in visitor is redirected straight to
+   `/dashboard` — they never see this page. A pending `?join=CODE` invite
+   link is previewed here even when signed out (see "Teams" below).
+2. **Dashboard (`/dashboard`, signed in)** — the logged-in landing page: a
+   card showing the personal manual's completion (fields filled, role,
+   MBTI badge if set) with "View"/"Edit" actions, and a card per team
+   (member count, Owner/Member tag, an agreement-status pill — Not
+   started / Draft — N of 8 / Finalized) linking into that team or
+   straight into its agreement. When a signed-in member's manual is empty,
+   landing here routes them straight into the wizard's "About You" step
+   (name + profile) as a one-time nudge per sign-in — not a hard gate, the
+   nav stays reachable and nothing else is blocked on it (see "Accounts &
+   persistence").
+3. **Wizard (`/manual/edit?step=<key>`)** — seven short form sections
+   (About You, How You Communicate, How You Work, Feedback & Support,
+   Values & Expectations, Strengths & Growth, A Few More Things),
+   navigable via a sidebar with progress indication; the current step is
+   part of the URL. Usable with or without an account — signing in from
+   here (via its own "Sign in to save your progress" link) doesn't move
+   you elsewhere. Answers persist in memory for the session when signed
+   out (not saved to a backend); autosaved once signed in (see "Accounts &
+   persistence"). About You includes an optional, self-reported
+   Myers-Briggs type field — a dropdown of the 16 types (with a link to
+   take the free test at 16personalities.com for anyone who doesn't know
+   theirs yet), no in-app quiz (avoids MBTI licensing/IP concerns and the
+   scope of building a real typing instrument). Once set, it renders as
+   its own "Personality" section in the detailed manual (self view and,
+   for teammates, the read-only teammate-profile view) as a small badge —
+   code + nickname (e.g. "INTJ — Architect") — linking out to that type's
+   page; the same badge (code only) also appears on the team roster and
+   dashboard. Omitted from the one-pager, hidden entirely when blank.
+4. **My Manual (`/manual`, signed in)** — a read-only profile view of your
+   own manual: a generated initials avatar, name, role, MBTI badge, then
+   the manual body, toggle-able between a **Detailed** view (full
+   sections) and a **One-pager** view (quick facts + essentials only).
+   A small "Edit basics" disclosure lets you fix name/role/MBTI inline
+   without entering the full wizard; "Edit full manual" goes to the
+   wizard for everything else. Empty state shown if nothing's filled in
+   yet.
+5. **Export** — "Print / Save as PDF" (available from My Manual, the
+   wizard's review step, and a finalized team agreement) opens the browser
+   print dialog; the printed/PDF output uses a distinct, professional
+   layout: a Wavelength letterhead (logo, document title, date), no app
+   chrome (nav, sidebar, buttons all hidden), and a "Prepared with
+   Wavelength" footer.
 
 ## AI assist
 
@@ -77,9 +98,12 @@ configured (`NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`
 unset) — no broken buttons, no dead flow.
 
 When it's configured:
-- "Sign in to save your progress" (home nav and wizard sidebar) opens a
-  modal that sends a passwordless magic-link email — no password ever
-  created or stored by Wavelength.
+- "Sign in" (the marketing home page and the wizard's own sidebar both
+  have their own entry point) opens a modal that sends a passwordless
+  magic-link email — no password ever created or stored by Wavelength.
+  Everything past the wizard (dashboard, my manual, teams, the agreement)
+  requires being signed in — visiting one of those routes signed out
+  redirects to the marketing home page.
 - Once signed in, the personal manual autosaves (debounced, ~900ms after
   the last keystroke) to a `personal_manuals` row keyed to the account, and
   reloads automatically on a later visit.
@@ -111,10 +135,12 @@ Once a team exists (see Roadmap Phase 2/3 for how it got built):
   confirm); any non-owner member can leave. There's currently no way for
   the owner to leave without deleting the team, or to hand ownership to
   someone else — see "Explicitly out of scope."
-- The roster shows every member by name (falling back to email if they
-  haven't filled in their manual's name field yet) and whether they've
-  completed their personal manual; clicking a teammate who has one opens
-  it read-only.
+- The roster (`/teams/[teamId]`) is a grid of profile cards — a generated
+  initials avatar, name (falling back to email if they haven't filled in
+  their manual's name field yet), role, and MBTI badge if set — plus
+  whether they've completed their personal manual. Clicking a teammate who
+  has one opens their manual read-only at its own page,
+  `/teams/[teamId]/members/[userId]`.
 - The Team Working Agreement is 8 shared questions. Each member answers
   privately first — each answer shows a save status ("Saving…" / "Saved
   ✓" / an error if it fails) and there's an explicit "Save my answers"
@@ -150,12 +176,11 @@ Once a team exists (see Roadmap Phase 2/3 for how it got built):
 - Real-time collaborative editing of the Team Working Agreement draft — two
   people editing at once will overwrite each other; there's no live
   presence or conflict handling.
-- URL deep-linking / browser-back support for team and agreement views —
-  navigating between the wizard, teams, and the agreement is all in-memory
-  `view` state, not real routes, so a refresh or a shared link always lands
-  on the home page.
 - Editing the AI's suggestion inline before accepting — today it replaces
   the field/textarea directly and the user can just keep editing the text.
+- Uploaded profile photos — avatars are generated (initials on a color
+  derived from a hash of your name/email), not a picture you upload; no
+  storage bucket exists for this.
 
 ## Roadmap: team working agreement
 
@@ -191,3 +216,11 @@ Phased so each step ships independent value:
   `team_agreements` follow the same deny-by-default RLS + `security
   definer` RPC pattern as Phase 2 — see `supabase/migrations/20260905000000_team_working_agreement.sql` and
   docs/DECISIONS.md.
+- **Phase 4 — done.** Logged-in experience rebuilt around real routes and a
+  new `/dashboard`, centered on the personal manual and the team working
+  agreement instead of the marketing home page with an account menu
+  bolted on: a dashboard landing page, a read-only "My Manual" profile
+  view, teammate profiles as their own pages (grid of profile cards on the
+  roster, generated initials avatars throughout), and a persistent nav
+  shell — described throughout "Core flow" and "Teams & the working
+  agreement" above. See `docs/DECISIONS.md` (2026-09-09).

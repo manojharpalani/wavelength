@@ -29,35 +29,91 @@ commit it, so it doesn't land in shell history or git.
 
 ## Architecture
 
-This is a Next.js 15 (App Router) rebuild of a single-file static prototype
-(originally a Claude Design canvas export). The whole product still lives as
-one client component:
+This is a Next.js 15 (App Router) app. It started as a rebuild of a
+single-file static prototype where the whole product lived in one client
+component (`app/page.tsx`) with an in-memory `view` state machine instead
+of real routes; as of the 2026-09-09 redesign (see `docs/DECISIONS.md`)
+it's a real route tree with shared modules under `lib/` and `components/`.
+Two things stay outside the signed-in app on purpose — see the "wizard" and
+"invite links" bullets below — everything else requires an account.
 
-- **`app/page.tsx`** — the entire wizard + teams app: data model (`STEPS`,
-  `REVIEW_GROUPS`, `ONEPAGER_*`, `SAMPLE_VALUES`, `AGREEMENT_QUESTIONS`,
-  `SAMPLE_AGREEMENT`), all state (`view`, `step`, `values`, `exportView`,
-  `previewOpen`, `assist`, plus the team/agreement state below), and every
-  UI section (home landing page, wizard sidebar/steps, review/manual
-  output, sample preview modal, team list/detail, the working agreement's
-  three tabs). There's no router beyond `/` — "pages" are just `view`/
-  `step` state, not Next.js routes. Adding a wizard field means editing the
-  `STEPS` array (drives the form) and usually a matching entry in
-  `REVIEW_GROUPS`/`ONEPAGER_*` (drives what shows up in the generated
-  manual) — these are separate data structures kept manually in sync.
-  Adding an agreement question means editing `AGREEMENT_QUESTIONS` (and
-  ideally `SAMPLE_AGREEMENT`) — `question_key` in the schema is free text,
-  not a foreign key, so this needs no migration.
-- **`app/globals.css`** — all styling, including a `@media print` block that
-  is the *only* styling used when the user clicks "Print / Save as PDF"
-  (`window.print()` in `page.tsx`) — reused for both a personal manual and
-  a finalized team agreement. Print output gets its own letterhead
-  (`.print-letterhead`, `.print-footer`) that's `display: none` on screen
-  and only shown in print — check this block when changing what the
-  exported PDF looks like, not the screen styles. Note: `.home` uses
-  `justify-content: safe center`, not plain `center` — plain `center` on
-  an overflowing flex container clips its top permanently instead of
-  letting you scroll to it (see `docs/DECISIONS.md`, 2026-09-04); don't
-  revert that without re-reading why.
+- **`app/page.tsx`** — the marketing home page only, signed-out visitors.
+  A signed-in visitor is redirected to `/dashboard`. Also owns the whole
+  `?join=CODE` invite-link flow (preview the team name via the
+  anon-permitted `get_team_by_invite_code` RPC, prompt sign-in, auto-join
+  and redirect once signed in) — that has to work signed-out, so it can't
+  live behind the gated `/teams` route.
+- **`app/manual/edit/page.tsx`** — the wizard. Deliberately *outside* the
+  `app/(app)` route group and its auth gate: trying it before signing in
+  has always worked, and this keeps that true. `step` is a `?step=<key>`
+  query param instead of local state. Keeps its own left-rail chrome (the
+  step list + a "Sign in to save your progress" link) rather than the
+  shared `AppShell`.
+- **`app/(app)/`** — a route group wrapping every signed-in screen in
+  `AppShell` (`components/AppShell.tsx`: left nav — Dashboard / My Manual
+  / Teams — collapsing to a drawer under 760px) via `app/(app)/layout.tsx`,
+  which redirects to `/` if not signed in (or to `/manual/edit` if
+  Supabase isn't configured at all — see below):
+  - `dashboard/page.tsx` — the logged-in landing page: personal-manual
+    completion card, and a card per team (member count, agreement-status
+    pill) linking into that team or straight into its agreement.
+  - `manual/page.tsx` — read-only "My Manual" profile view (avatar, name,
+    role, MBTI, the manual body), with an "Edit basics" disclosure for
+    name/role/MBTI and an "Edit full manual" link into the wizard.
+  - `teams/page.tsx` — team list + create/join forms.
+  - `teams/[teamId]/page.tsx` — invite link, the roster as a grid of
+    profile cards, the agreement-status card, and rename/leave/delete
+    under a "Team settings" disclosure.
+  - `teams/[teamId]/members/[userId]/page.tsx` — a teammate's manual,
+    read-only, as its own page (not a modal).
+  - `teams/[teamId]/agreement/page.tsx` — the working agreement's three
+    tabs; `tab` is a `?tab=<respond|compare|draft>` query param.
+- **`lib/manual/data.ts`** — the personal-manual data model: `STEPS`
+  (drives the wizard form), `REVIEW_GROUPS`/`ONEPAGER_*` (drives what
+  shows up in the generated manual — kept manually in sync with `STEPS`),
+  `SAMPLE_VALUES`, `manualCompletion()` (the dashboard's completion
+  fraction), and helpers (`isFilled`, `deriveTags`, `docTitleFor`, …).
+  Adding a wizard field means editing `STEPS` and usually a matching entry
+  in `REVIEW_GROUPS`/`ONEPAGER_*`.
+- **`lib/agreement/data.ts`** — `AGREEMENT_QUESTIONS`, `SAMPLE_AGREEMENT`,
+  and status-summary helpers (`agreementStatusSummary` for the full-detail
+  team page, `teamAgreementBadge` for the lightweight dashboard/team-card
+  pill fed straight from `get_my_teams()`'s enriched columns). Adding an
+  agreement question means editing `AGREEMENT_QUESTIONS` (and ideally
+  `SAMPLE_AGREEMENT`) — `question_key` in the schema is free text, not a
+  foreign key, so this needs no migration.
+- **`lib/teams/types.ts`** — `TeamSummary`/`RosterRow`, matching
+  `get_my_teams()`/`get_team_roster()`'s current return shape exactly;
+  update both together when either RPC's columns change.
+- **`lib/auth/AuthProvider.tsx`** — mounted once in `app/layout.tsx`, wraps
+  the whole app. Owns `authUser`/`authLoading`/`supabaseEnabled` and the
+  sign-in modal's open state; every route reads it via `useAuth()` instead
+  of prop-drilling. `components/SignInModal.tsx` is the magic-link form
+  itself, mounted once inside the provider.
+- **`lib/hooks/`** — one small hook per concern, each a plain
+  `useEffect`/`useState` wrapper around Supabase calls (no state-management
+  library): `useMyManual` (load/autosave/flush-on-hide — used by both the
+  wizard and the read-only manual view), `useMyTeams` (list +
+  create/join), `useTeamRoster`, `useTeamActions` (rename/leave/delete),
+  `useTeamMemberManual`, and `useAgreement` (everything the agreement's
+  three tabs need: load, per-question autosave, AI synthesis, finalize).
+- **`components/`** — `ManualBody`/`ReviewSection` (the manual/agreement
+  renderer, shared by the wizard's review step, My Manual, a teammate's
+  profile, and the agreement's print view), `MbtiBadge`, `Avatar`
+  (generated initials-on-hashed-color, no photo upload — see
+  `docs/DECISIONS.md`, 2026-09-09), `AssistButton`, `LogoMark`,
+  `HomeVideoEmbed`, `AppShell`, `SignInModal`.
+- **`app/globals.css`** — all styling, including a `@media print` block
+  that is the *only* styling used when the user clicks "Print / Save as
+  PDF" (`window.print()`) — reused for a personal manual and a finalized
+  team agreement. Print output gets its own letterhead (`.print-letterhead`,
+  `.print-footer`) that's `display: none` on screen and only shown in
+  print — check this block (including the `.app-shell-*` print rules) when
+  changing what the exported PDF looks like, not the screen styles. Note:
+  `.home` uses `justify-content: safe center`, not plain `center` — plain
+  `center` on an overflowing flex container clips its top permanently
+  instead of letting you scroll to it (see `docs/DECISIONS.md`,
+  2026-09-04); don't revert that without re-reading why.
 - **`app/api/assist/route.ts`** — the one server-side piece, two modes:
   the default takes a field label + the user's rough draft + light context
   (name/role) and returns a polished first-person rewrite; `{ mode:
@@ -68,53 +124,54 @@ one client component:
   (rendered inline in the UI, not thrown) when `ANTHROPIC_API_KEY` is
   unset — preserve that graceful-degradation behavior rather than erroring
   the page.
-- **Video embed** (`HomeVideoEmbed` in `page.tsx`) — a plain, visible
-  YouTube `<iframe>` embedded inline on the home page only (between the
-  hero and "why it matters"), not behind a button/modal and not on any
-  other view. No autoplay parameter and no imperative IFrame API — a
-  visitor presses the embed's own play control if they want to watch. The
-  video ID is the `HOME_VIDEO_ID` constant right above it; swap it there
-  to change the video.
 - **`lib/supabase/{client,server,config}.ts`, `middleware.ts`,
   `app/auth/callback/route.ts`** — optional accounts + persistence.
   `config.ts`'s `isSupabaseConfigured()` gates everything: with
   `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` unset, the
-  browser/server clients return `null` and every call site (in `page.tsx`,
-  the middleware, the callback route) no-ops instead of throwing — the app
-  must keep working exactly as before when these are unset. `client.ts` is
-  the browser client (magic-link sign-in, session state, autosave);
-  `server.ts` is for Route Handlers; `middleware.ts` refreshes the auth
-  cookie on every request; `app/auth/callback/route.ts` exchanges the
-  magic-link code for a session. See `docs/DECISIONS.md` (2026-09-04) for
-  the reasoning and `supabase/migrations/20260828120000_accounts_and_manuals.sql` for the DB schema + RLS
-  policies — see "Database migrations" below for how migrations get applied.
+  browser/server clients return `null`, `AuthProvider` never sets
+  `authUser`, and `app/(app)/layout.tsx` redirects every signed-in route to
+  `/manual/edit` — the app must keep working exactly as before when these
+  are unset (just the wizard, nothing saved). `client.ts` is the browser
+  client (magic-link sign-in, session state, autosave); `server.ts` is for
+  Route Handlers; `middleware.ts` refreshes the auth cookie on every
+  request; `app/auth/callback/route.ts` exchanges the magic-link code for
+  a session. See `docs/DECISIONS.md` (2026-09-04) for the reasoning and
+  `supabase/migrations/20260828120000_accounts_and_manuals.sql` for the DB
+  schema + RLS policies — see "Database migrations" below for how
+  migrations get applied.
 - **`app/join/[code]/page.tsx`, `supabase/migrations/20260904160000_teams.sql`,
-  `supabase/migrations/20260905220000_team_management.sql`** — teams, gated by the same
-  `isSupabaseConfigured()` check. Team create/join/roster/rename/leave/
-  delete all go through `security definer` RPCs, not direct table access —
-  `teams`/`team_members` have RLS enabled with no row policies at all; see
-  `docs/DECISIONS.md` (2026-09-04, "Teams (Phase 2)" and "Team management")
-  for why. `/join/[code]` is a thin server-component redirect to
-  `/?join=CODE` — the actual join UI lives in `page.tsx` alongside
-  everything else, there's no separate router.
+  `supabase/migrations/20260905220000_team_management.sql`,
+  `supabase/migrations/20260909120000_team_summary_counts.sql`,
+  `supabase/migrations/20260909120100_roster_role.sql`** — teams, gated by
+  the same `isSupabaseConfigured()` check. Team create/join/roster/rename/
+  leave/delete all go through `security definer` RPCs, not direct table
+  access — `teams`/`team_members` have RLS enabled with no row policies at
+  all; see `docs/DECISIONS.md` (2026-09-04, "Teams (Phase 2)" and "Team
+  management") for why. `/join/[code]` is a thin server-component redirect
+  to `/?join=CODE`, handled entirely on the marketing home page (see
+  above) rather than the gated `/teams` route. The two 2026-09-09
+  migrations enrich `get_my_teams()`/`get_team_roster()` (member count,
+  agreement status, role) so the dashboard and profile cards don't need
+  N+1 RPC round trips — same drop-then-recreate pattern as
+  `20260908130000_roster_mbti.sql`.
 - **`supabase/migrations/20260905220100_manual_sharing.sql`** — one RPC,
   `get_team_member_manual`, letting a team member read (never write) a
   teammate's `personal_manuals` row, gated on both people being members of
   the same team. Does not add a row policy to `personal_manuals` itself —
   see `docs/DECISIONS.md` (2026-09-04).
-- **`supabase/migrations/20260905000000_team_working_agreement.sql`, `AGREEMENT_QUESTIONS` in `page.tsx`,
-  `/api/assist`'s `team-synthesis` mode** — the Team Working Agreement
-  (Phase 3). Same RLS pattern as Phase 2:
-  `team_agreement_responses`/`team_agreement_drafts`/`team_agreements`
-  have no row policies, everything goes through `security definer` RPCs
-  that check `team_members` first. Once finalized (`team_agreements.
-  finalized_at` set), the UI renders the agreement read-only — the draft
-  textareas aren't shown at all until someone clicks "Edit agreement";
-  `save_agreement_draft` still auto-clears `finalized_at` on any write as
-  defense-in-depth, but the UI shouldn't normally reach that path while
-  finalized. See `docs/DECISIONS.md` (2026-09-04, "Team Working Agreement
-  (Phase 3)" and the read-only-finalize entry above it) for the full
-  reasoning.
+- **`supabase/migrations/20260905000000_team_working_agreement.sql`,
+  `lib/agreement/data.ts`'s `AGREEMENT_QUESTIONS`, `/api/assist`'s
+  `team-synthesis` mode** — the Team Working Agreement (Phase 3). Same RLS
+  pattern as Phase 2: `team_agreement_responses`/`team_agreement_drafts`/
+  `team_agreements` have no row policies, everything goes through
+  `security definer` RPCs that check `team_members` first. Once finalized
+  (`team_agreements.finalized_at` set), the UI renders the agreement
+  read-only — the draft textareas aren't shown at all until someone clicks
+  "Edit agreement"; `save_agreement_draft` still auto-clears
+  `finalized_at` on any write as defense-in-depth, but the UI shouldn't
+  normally reach that path while finalized. See `docs/DECISIONS.md`
+  (2026-09-04, "Team Working Agreement (Phase 3)" and the read-only-
+  finalize entry above it) for the full reasoning.
 
 ### Database migrations
 

@@ -17,9 +17,12 @@ shared, no sign-in required.
 
 ## Stack
 
-- **Next.js 15** (App Router) + React 19, TypeScript — a single client
-  component (`app/page.tsx`) plus a couple of small API/server-component
-  routes. Plain CSS (`app/globals.css`), no UI framework.
+- **Next.js 15** (App Router) + React 19, TypeScript — a real route tree
+  (marketing home, an account-optional wizard, and an auth-gated app for
+  the dashboard/manual/teams/agreement) with shared data/hooks under
+  `lib/` and shared UI under `components/`, plus a couple of small
+  API/server-component routes. Plain CSS (`app/globals.css`), no UI
+  framework. See `CLAUDE.md` for the file-by-file breakdown.
 - **Vercel AI SDK** (`ai` + `@ai-sdk/anthropic`) for the "✨ Help me write
   this" assist — used both to polish a person's own rough notes, and (on
   the team agreement's "Shared draft" tab) to draft a proposed team-wide
@@ -42,10 +45,10 @@ Open http://localhost:3000.
   and the agreement's AI-drafting button just return a friendly "not
   configured" message instead of a polished answer.
 - Without the two `NEXT_PUBLIC_SUPABASE_*` keys, the app still works —
-  there's no sign-in, no saved manuals, and the Teams nav link shows a
-  plain "not set up yet" message instead of anything broken. Everything
-  else (the personal manual wizard, sample previews, print/PDF) behaves
-  exactly as it does with accounts on.
+  there's no sign-in, no dashboard, no teams, and no saved manuals; every
+  route just redirects to the personal manual wizard, which behaves
+  exactly as it does with accounts on (sample previews, print/PDF
+  included) — nothing broken, nothing to configure.
 
 ## Accounts, teams, and the working agreement (optional)
 
@@ -89,6 +92,10 @@ dashboard's SQL Editor:
 - `20260905220100_manual_sharing.sql` — lets teammates view each other's
   completed personal manual (mediated by team membership, not a change to
   `personal_manuals`' own owner-only policies).
+- `20260909120000_team_summary_counts.sql`, `20260909120100_roster_role.sql`
+  — enrich the teams list and roster with a member count, agreement
+  status, and role, so the dashboard and profile cards don't need extra
+  round trips per team.
 
 **One-time setup**, run yourself in your own terminal — linking asks for
 your project ref and (if prompted) your database password, so this isn't
@@ -160,13 +167,14 @@ inline, so it never lands in shell history.)
 ## Editing content or design
 
 - Wizard steps, review copy, and the sample "Manoj Harpalani" data all live
-  in `app/page.tsx`, along with the Team Working Agreement's question set
-  (`AGREEMENT_QUESTIONS`) and its own sample data (`SAMPLE_AGREEMENT`).
+  in `lib/manual/data.ts`; the Team Working Agreement's question set
+  (`AGREEMENT_QUESTIONS`) and its own sample data (`SAMPLE_AGREEMENT`) live
+  in `lib/agreement/data.ts`.
 - Styling lives in `app/globals.css`, including the print/PDF letterhead
   used for both a finished personal manual and a finalized team agreement.
-- To swap the background track, replace the video ID (`fIgfO9gD5GY`) in the
-  `AudioToggle` component in `app/page.tsx` — make sure you have the right
-  to use whatever you swap in for background music on a public page.
+- To swap the home page's video, replace the video ID (`HOME_VIDEO_ID` in
+  `components/HomeVideoEmbed.tsx`) — make sure you have the right to use
+  whatever you swap in on a public page.
 
 ## Project docs
 
